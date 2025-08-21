@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>テスト - 日報・月報作成システム</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>日報・月報作成システム - テストページ</h1>
+    
+    <div class="test-section">
+        <h2>システムテスト</h2>
+        <div id="testResults"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Excelファイルテスト</h2>
+        <input type="file" id="testFile" accept=".xlsx,.xls">
+        <button onclick="testExcelFile()">テスト実行</button>
+        <div id="excelTestResults"></div>
+    </div>
+    
+    <script>
+        // 基本的なシステムテスト
+        function runSystemTest() {
+            const results = document.getElementById('testResults');
+            let html = '<h3>テスト結果:</h3><ul>';
+            
+            try {
+                // 基本的な機能テスト
+                if (typeof window !== 'undefined') {
+                    html += '<li class="success">✓ ブラウザ環境: OK</li>';
+                } else {
+                    html += '<li class="error">✗ ブラウザ環境: NG</li>';
+                }
+                
+                // ライブラリの存在確認
+                if (window.XLSX) {
+                    html += '<li class="success">✓ XLSXライブラリ: OK</li>';
+                } else {
+                    html += '<li class="error">✗ XLSXライブラリ: NG</li>';
+                }
+                
+                if (window.jspdf) {
+                    html += '<li class="success">✓ jsPDFライブラリ: OK</li>';
+                } else {
+                    html += '<li class="error">✗ jsPDFライブラリ: NG</li>';
+                }
+                
+                if (window.saveAs) {
+                    html += '<li class="success">✓ FileSaverライブラリ: OK</li>';
+                } else {
+                    html += '<li class="error">✗ FileSaverライブラリ: NG</li>';
+                }
+                
+            } catch (error) {
+                html += `<li class="error">✗ エラー: ${error.message}</li>`;
+            }
+            
+            html += '</ul>';
+            results.innerHTML = html;
+        }
+        
+        // Excelファイルのテスト
+        async function testExcelFile() {
+            const fileInput = document.getElementById('testFile');
+            const results = document.getElementById('excelTestResults');
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                results.innerHTML = '<p class="error">ファイルが選択されていません。</p>';
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            results.innerHTML = '<p>ファイル処理中...</p>';
+            
+            try {
+                if (window.XLSX) {
+                    const data = new Uint8Array(await file.arrayBuffer());
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    results.innerHTML = `
+                        <p class="success">✓ ファイル読み込み成功</p>
+                        <p>シート名: ${sheetName}</p>
+                        <p>総行数: ${jsonData.length}</p>
+                        <p>最初の行: ${JSON.stringify(jsonData[0])}</p>
+                    `;
+                } else {
+                    results.innerHTML = '<p class="error">✗ XLSXライブラリが読み込まれていません。</p>';
+                }
+            } catch (error) {
+                results.innerHTML = `<p class="error">✗ エラー: ${error.message}</p>`;
+            }
+        }
+        
+        // ページ読み込み時にテスト実行
+        window.onload = function() {
+            runSystemTest();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "daily-monthly-report-system",
+  "version": "1.0.0",
+  "description": "日報・月報作成システム",
+  "main": "index.html",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "dev": "live-server dist --port=3000",
+    "start": "npm run build && npm run dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "live-server": "^1.2.2"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5",
+    "jspdf": "^2.5.1",
+    "file-saver": "^2.0.5"
+  },
+  "keywords": ["日報", "月報", "受注管理", "Excel"],
+  "author": "",
+  "license": "MIT"
+}
