@@ -109,9 +109,9 @@ export class ExcelProcessor {
                 mainContract: row[29], // AD列：本契約
                 total: row[30], // AE列：計
                 
-                // 計算フィールド
-                isOrder: this.isOrder(undefined, row[10], this.parseDate(row[0]), row[6], this.getCurrentDateFilter()), // 受注判定（J列確認区分なし + K列アクション状況 + A列日付 + G列年齢 + 対象日付）
-                isOvertime: this.isOvertime(this.parseDate(row[0]), row[1], undefined, row[10], row[6], this.getCurrentDateFilter()), // 時間外対応判定（A列またはK列から日付、B列、J列なし、K列、G列年齢、対象日付）
+                // 計算フィールド（日付に依存しないもののみ事前計算）
+                // isOrder: 動的に計算（ReportGeneratorで実行）
+                // isOvertime: 動的に計算（ReportGeneratorで実行）
                 isElderly: this.isElderly(row[6]), // 高齢者判定
                 isExcessive: this.isExcessive(row[10]), // 過量販売判定
                 isSingle: this.isSingle(row[10]), // 単独契約判定
@@ -159,12 +159,15 @@ export class ExcelProcessor {
             return null;
         }
         
+        console.log('parseDate入力値:', { value, type: typeof value });
+        
         // Excelの日付形式（数値）を処理
         if (typeof value === 'number') {
             // Excelの日付は1900年1月1日からの日数（修正版）
             // 45889 = 2025年8月20日になるように調整
             const excelEpoch = new Date(1900, 0, 1);
             const date = new Date(excelEpoch.getTime() + (value - 2) * 24 * 60 * 60 * 1000);
+            console.log('parseDate数値結果:', date);
             return date;
         }
         
@@ -176,21 +179,27 @@ export class ExcelProcessor {
             const japaneseMatch = trimmedValue.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
             if (japaneseMatch) {
                 const [_, year, month, day] = japaneseMatch;
-                return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                const result = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                console.log('parseDate和暦結果:', result);
+                return result;
             }
             
             // "YYYY/MM/DD" 形式
             const slashMatch = trimmedValue.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
             if (slashMatch) {
                 const [_, year, month, day] = slashMatch;
-                return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                const result = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                console.log('parseDate YYYY/MM/DD結果:', result);
+                return result;
             }
             
             // "YYYY-MM-DD" 形式
             const dashMatch = trimmedValue.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
             if (dashMatch) {
                 const [_, year, month, day] = dashMatch;
-                return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                const result = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                console.log('parseDate YYYY-MM-DD結果:', result);
+                return result;
             }
             
             // "MM/DD→MM/DD" 形式（最初の日付を使用）
@@ -198,10 +207,24 @@ export class ExcelProcessor {
             if (arrowMatch) {
                 const [_, month, day] = arrowMatch;
                 const year = 2025; // 固定年（必要に応じて調整）
-                return new Date(year, parseInt(month) - 1, parseInt(day));
+                const result = new Date(year, parseInt(month) - 1, parseInt(day));
+                console.log('parseDate MM/DD→結果:', result);
+                return result;
+            }
+            
+            // 直接Date()コンストラクタを試行（フォールバック）
+            try {
+                const result = new Date(trimmedValue);
+                if (!isNaN(result.getTime())) {
+                    console.log('parseDate直接変換結果:', result);
+                    return result;
+                }
+            } catch (error) {
+                console.log('parseDate直接変換失敗:', error);
             }
         }
         
+        console.log('parseDate変換失敗:', value);
         return null;
     }
     
@@ -302,12 +325,30 @@ export class ExcelProcessor {
         
         // A列の日付が該当日付かチェック
         let isDateMatch = false;
-        if (date && date instanceof Date) {
-            const aDateMonth = date.getMonth();
-            const aDateDay = date.getDate();
+        let aDateObject = null;
+        
+        // A列の日付を正しく解析（時間外判定と同じロジック）
+        if (date instanceof Date) {
+            aDateObject = date;
+        } else if (typeof date === 'string') {
+            aDateObject = this.parseDate(date);
+        }
+        
+        if (aDateObject && aDateObject instanceof Date) {
+            const aDateMonth = aDateObject.getMonth();
+            const aDateDay = aDateObject.getDate();
+            console.log('A列日付解析結果:', {
+                originalDate: date,
+                parsedDate: aDateObject.toLocaleDateString(),
+                aMonth: aDateMonth,
+                aDay: aDateDay,
+                targetMonth: targetMonth,
+                targetDay: targetDay
+            });
+            
             if (aDateMonth === targetMonth && aDateDay === targetDay) {
                 isDateMatch = true;
-                console.log('A列の日付が該当日付と一致:', date.toLocaleDateString());
+                console.log('A列の日付が該当日付と一致:', aDateObject.toLocaleDateString());
             }
         } else if (date && typeof date === 'string') {
             // A列が文字列の場合（例：'8/4→8/7'）、該当日付が含まれるかチェック
@@ -415,86 +456,118 @@ export class ExcelProcessor {
 
 
     private isOvertime(date: any, time: any, confirmation: any, confirmationDateTime: any, age: any, targetDate?: Date): boolean {
-        // カウント条件.mdに基づく時間外判定ロジック
-        // 契約者（A列+B列）と確認者（K列）の両方をチェック
+        // カウント条件に基づく時間外判定ロジック
+        // ①A列が対象日付であり、B列が18:30以降であるものをカウント
+        // ②K列の文字列を日付と時間と個人名に分解して、日付が対象日付であり、時間が18:30以降であるものをカウント
+        // ③K列が「同時」となっている場合は、AB列でカウント済なのでカウント無し
+        // ①＋②が時間外件数となる
         
-        // まず日付フィルタリングを行う
         const actualTargetDate = targetDate || this.getCurrentDateFilter();
         const targetMonth = actualTargetDate.getMonth();
         const targetDay = actualTargetDate.getDate();
         
-        // A列またはK列に対象日付が含まれるかチェック
-        let isDateMatch = false;
+        console.log('時間外判定開始:', {
+            date: date instanceof Date ? date.toLocaleDateString() : date,
+            time: time,
+            confirmationDateTime: confirmationDateTime,
+            targetDate: actualTargetDate.toLocaleDateString()
+        });
         
-        // A列の日付チェック
-        if (date && date instanceof Date) {
-            const aDateMonth = date.getMonth();
-            const aDateDay = date.getDate();
+        let contractorOvertimeCount = 0; // ①のカウント
+        let confirmerOvertimeCount = 0;  // ②のカウント
+        
+        // ①A列が対象日付であり、B列が18:30以降であるものをカウント
+        let aDateObject = null;
+        
+        // A列の日付を正しく解析
+        if (date instanceof Date) {
+            aDateObject = date;
+        } else if (typeof date === 'string') {
+            aDateObject = this.parseDate(date);
+        }
+        
+        if (aDateObject && aDateObject instanceof Date) {
+            const aDateMonth = aDateObject.getMonth();
+            const aDateDay = aDateObject.getDate();
+            
+            console.log('A列日付比較:', {
+                aDate: aDateObject.toLocaleDateString(),
+                aMonth: aDateMonth,
+                aDay: aDateDay,
+                targetMonth: targetMonth,
+                targetDay: targetDay,
+                isMatch: aDateMonth === targetMonth && aDateDay === targetDay
+            });
+            
             if (aDateMonth === targetMonth && aDateDay === targetDay) {
-                isDateMatch = true;
-            }
-        }
-        
-        // K列の日付チェック（A列でマッチしない場合）
-        if (!isDateMatch && confirmationDateTime) {
-            const kColumnStr = String(confirmationDateTime);
-            const targetDateStr = `${targetMonth + 1}/${targetDay}`;
-            
-            if (kColumnStr.includes(targetDateStr)) {
-                isDateMatch = true;
-            }
-            
-            // K列の日付+時間形式での日付チェック
-            const kDateMatch = kColumnStr.match(/(\d{1,2})\/(\d{1,2})/);
-            if (kDateMatch) {
-                const kMonth = parseInt(kDateMatch[1]);
-                const kDay = parseInt(kDateMatch[2]);
-                if (kMonth === targetMonth + 1 && kDay === targetDay) {
-                    isDateMatch = true;
-                }
-            }
-        }
-        
-        // 対象日付でない場合は時間外判定しない
-        if (!isDateMatch) {
-            return false;
-        }
-        
-        let isContractorOvertime = false; // 契約者の時間外判定
-        let isConfirmerOvertime = false;  // 確認者の時間外判定
-        
-        // 1. 契約者の時間外判定（A列+B列）
-        if (date && time) {
-            // 時間が数値（Excel時間）の場合
-            if (typeof time === 'number') {
-                const hours = Math.floor(time * 24);
-                const minutes = Math.floor((time * 24 - hours) * 60);
-                const totalMinutes = hours * 60 + minutes;
+                console.log('A列の日付が対象日付と一致');
                 
-                if (totalMinutes >= 18 * 60 + 30) { // 18:30以降
-                    isContractorOvertime = true;
-                }
-            }
-            // 時間が文字列の場合
-            else if (typeof time === 'string') {
-                const parsedTime = this.parseTime(time);
-                if (parsedTime) {
-                    const [hours, minutes] = parsedTime.split(':').map(Number);
-                    const totalMinutes = hours * 60 + minutes;
-                    if (totalMinutes >= 18 * 60 + 30) {
-                        isContractorOvertime = true;
+                // B列の時間チェック
+                if (time !== null && time !== undefined) {
+                    let isContractorOvertime = false;
+                    
+                    // 時間が数値（Excel時間）の場合
+                    if (typeof time === 'number') {
+                        const hours = Math.floor(time * 24);
+                        const minutes = Math.floor((time * 24 - hours) * 60);
+                        const totalMinutes = hours * 60 + minutes;
+                        
+                        if (totalMinutes >= 18 * 60 + 30) { // 18:30以降
+                            isContractorOvertime = true;
+                        }
+                        console.log('B列時間判定（数値）:', { 
+                            time, 
+                            hours, 
+                            minutes, 
+                            totalMinutes, 
+                            cutoff: 18 * 60 + 30,
+                            comparison: `${totalMinutes} >= ${18 * 60 + 30}`,
+                            isOvertime: isContractorOvertime 
+                        });
+                    }
+                    // 時間が文字列の場合
+                    else if (typeof time === 'string') {
+                        const parsedTime = this.parseTime(time);
+                        if (parsedTime) {
+                            const [hours, minutes] = parsedTime.split(':').map(Number);
+                            const totalMinutes = hours * 60 + minutes;
+                            if (totalMinutes >= 18 * 60 + 30) {
+                                isContractorOvertime = true;
+                            }
+                            console.log('B列時間判定（文字列）:', { parsedTime, hours, minutes, totalMinutes, isOvertime: isContractorOvertime });
+                        }
+                    }
+                    
+                    if (isContractorOvertime) {
+                        contractorOvertimeCount = 1;
+                        console.log('①契約者時間外として判定');
                     }
                 }
+            } else {
+                console.log('A列の日付が対象日付と一致しない:', {
+                    aMonth: aDateMonth,
+                    aDay: aDateDay,
+                    targetMonth: targetMonth,
+                    targetDay: targetDay,
+                    reason: `${aDateMonth}!=${targetMonth} または ${aDateDay}!=${targetDay}`
+                });
             }
+        } else {
+            console.log('A列の日付解析に失敗:', {
+                originalDate: date,
+                parsedDate: aDateObject,
+                type: typeof date
+            });
         }
         
-        // 2. 確認者の時間外判定（K列）
+        // ②K列の文字列を日付と時間と個人名に分解して、日付が対象日付であり、時間が18:30以降であるものをカウント
         if (confirmationDateTime && typeof confirmationDateTime === 'string') {
             const kColumnStr = String(confirmationDateTime);
             
-            // K列が「同時」の場合：A列+B列の時間を使用
+            // ③K列が「同時」の場合は、AB列でカウント済なのでカウント無し
             if (kColumnStr === '同時') {
-                isConfirmerOvertime = isContractorOvertime;
+                console.log('K列が「同時」のため、②のカウントはしない');
+                // confirmerOvertimeCount = 0; // 明示的に0のまま
             }
             // K列に日付+時間が含まれる場合
             else if (kColumnStr.includes(':')) {
@@ -502,41 +575,47 @@ export class ExcelProcessor {
                 const timeMatch = kColumnStr.match(/(\d{1,2})\/(\d{1,2})\s*(\d{1,2})[：:]\s*(\d{1,2})/);
                 if (timeMatch) {
                     const [_, month, day, hour, minute] = timeMatch;
-                    const year = 2025; // テストファイルの年
-                    const fullDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
                     
-                    const confirmerTime = new Date(`${fullDateStr}T${timeStr}:00`);
-                    
-                    if (!isNaN(confirmerTime.getTime())) {
-                        const cutoffTime = new Date(confirmerTime);
-                        cutoffTime.setHours(18, 30, 0, 0);
+                    // 日付が対象日付と一致するかチェック
+                    const kMonth = parseInt(month);
+                    const kDay = parseInt(day);
+                    if (kMonth === targetMonth + 1 && kDay === targetDay) {
+                        console.log('K列の日付が対象日付と一致');
                         
-                        if (confirmerTime >= cutoffTime) {
-                            isConfirmerOvertime = true;
+                        // 時間が18:30以降かチェック
+                        const kHour = parseInt(hour);
+                        const kMinute = parseInt(minute);
+                        const kTotalMinutes = kHour * 60 + kMinute;
+                        
+                        if (kTotalMinutes >= 18 * 60 + 30) {
+                            confirmerOvertimeCount = 1;
+                            console.log('②確認者時間外として判定:', { kMonth, kDay, kHour, kMinute, kTotalMinutes });
                         }
                     }
                 }
-                // 従来の方法（スペース区切り）
+                // スペース区切りの従来の方法
                 else {
                     const kColumnData = kColumnStr.split(' ');
                     if (kColumnData.length >= 2) {
                         const dateStr = kColumnData[0]; // 例: 8/20
-                        const timeStr = kColumnData[1]; // 例: 12:37
+                        const timeStr = kColumnData[1]; // 例: 19:37
                         
                         if (dateStr.includes('/')) {
                             const [month, day] = dateStr.split('/').map(Number);
-                            const year = 2025;
-                            const fullDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                             
-                            const confirmerTime = new Date(`${fullDateStr}T${timeStr}:00`);
-                            
-                            if (!isNaN(confirmerTime.getTime())) {
-                                const cutoffTime = new Date(confirmerTime);
-                                cutoffTime.setHours(18, 30, 0, 0);
+                            // 日付が対象日付と一致するかチェック
+                            if (month === targetMonth + 1 && day === targetDay) {
+                                console.log('K列の日付が対象日付と一致（スペース区切り）');
                                 
-                                if (confirmerTime >= cutoffTime) {
-                                    isConfirmerOvertime = true;
+                                // 時間が18:30以降かチェック
+                                if (timeStr.includes(':')) {
+                                    const [hours, minutes] = timeStr.split(':').map(Number);
+                                    const totalMinutes = hours * 60 + minutes;
+                                    
+                                    if (totalMinutes >= 18 * 60 + 30) {
+                                        confirmerOvertimeCount = 1;
+                                        console.log('②確認者時間外として判定（スペース区切り）:', { month, day, hours, minutes, totalMinutes });
+                                    }
                                 }
                             }
                         }
@@ -545,8 +624,16 @@ export class ExcelProcessor {
             }
         }
         
-        // 3. 契約者または確認者のいずれかが時間外の場合、時間外として判定
-        const finalResult = isContractorOvertime || isConfirmerOvertime;
+        // ①＋②が時間外件数となる（ただし、1つのレコードでは最大1件としてカウント）
+        const finalResult = contractorOvertimeCount > 0 || confirmerOvertimeCount > 0;
+        
+        console.log('時間外判定結果:', {
+            contractorOvertimeCount,
+            confirmerOvertimeCount,
+            finalResult,
+            dateInfo: date instanceof Date ? date.toLocaleDateString() : date,
+            timeInfo: time
+        });
         
         return finalResult;
     }
@@ -572,13 +659,31 @@ export class ExcelProcessor {
     private getCurrentDateFilter(): Date {
         // UIから日付を取得
         const reportDateInput = document.getElementById('reportDate') as HTMLInputElement;
+        console.log('getCurrentDateFilter - UI要素チェック:', {
+            element: !!reportDateInput,
+            value: reportDateInput?.value,
+            type: reportDateInput?.type
+        });
+        
         if (reportDateInput && reportDateInput.value) {
-            const selectedDate = new Date(reportDateInput.value);
+            // タイムゾーンの問題を回避するため、YYYY-MM-DD形式から直接作成
+            const [year, month, day] = reportDateInput.value.split('-').map(Number);
+            const selectedDate = new Date(year, month - 1, day); // monthは0ベース
+            console.log('getCurrentDateFilter - 正常パス:', {
+                inputValue: reportDateInput.value,
+                splitResult: [year, month, day],
+                selectedDate: selectedDate.toLocaleDateString(),
+                selectedDateISO: selectedDate.toISOString()
+            });
             return selectedDate;
         }
         
         // デフォルトは今日の日付
         const today = new Date();
+        console.log('getCurrentDateFilter - デフォルトパス:', {
+            today: today.toLocaleDateString(),
+            todayISO: today.toISOString()
+        });
         return today;
     }
     

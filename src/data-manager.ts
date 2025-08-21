@@ -257,13 +257,18 @@ export class DataManager {
                 ]);
             });
             
-            // CSV文字列の作成（BOM付きUTF-8）
-            const csvContent = '\uFEFF' + csvData.map(row => 
-                row.map(cell => `"${cell}"`).join(',')
-            ).join('\n');
+            // CSV文字列の作成（強化されたUTF-8エンコーディング）
+            const csvContent = csvData.map(row => 
+                row.map(cell => {
+                    // セル内容をエスケープして文字化けを防止
+                    const escapedCell = String(cell).replace(/"/g, '""');
+                    return `"${escapedCell}"`;
+                }).join(',')
+            ).join('\r\n'); // Windows互換の改行コード
             
-            // CSVファイルをダウンロード
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            // BOM付きUTF-8でBlobを作成（Excel対応）
+            const bom = '\uFEFF';
+            const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
             const fileName = `データエクスポート_${new Date().toISOString().split('T')[0]}.csv`;
             
             if ((window as any).saveAs) {

@@ -240,10 +240,15 @@ export class DataManager {
                     row.confirmerTel || ''
                 ]);
             });
-            // CSV文字列の作成（BOM付きUTF-8）
-            const csvContent = '\uFEFF' + csvData.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-            // CSVファイルをダウンロード
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            // CSV文字列の作成（強化されたUTF-8エンコーディング）
+            const csvContent = csvData.map(row => row.map(cell => {
+                // セル内容をエスケープして文字化けを防止
+                const escapedCell = String(cell).replace(/"/g, '""');
+                return `"${escapedCell}"`;
+            }).join(',')).join('\r\n'); // Windows互換の改行コード
+            // BOM付きUTF-8でBlobを作成（Excel対応）
+            const bom = '\uFEFF';
+            const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
             const fileName = `データエクスポート_${new Date().toISOString().split('T')[0]}.csv`;
             if (window.saveAs) {
                 window.saveAs(blob, fileName);

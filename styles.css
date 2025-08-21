@@ -4,6 +4,132 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+/* PDF出力専用スタイル */
+.pdf-container {
+    background: white;
+    padding: 20px;
+    width: 190mm;
+    min-height: 270mm;
+    margin: 0;
+    box-shadow: none;
+    font-family: 'Yu Gothic', 'Hiragino Sans', 'Meiryo', sans-serif;
+    position: absolute;
+    left: -9999px;
+    top: 0;
+}
+
+.pdf-header {
+    text-align: center;
+    margin-bottom: 25px;
+    border-bottom: 3px solid #0d6efd;
+    padding-bottom: 15px;
+}
+
+.pdf-title {
+    font-size: 28px;
+    font-weight: bold;
+    color: #0d6efd;
+    margin: 0;
+}
+
+.pdf-date {
+    font-size: 16px;
+    color: #6c757d;
+    margin-top: 8px;
+}
+
+.pdf-section {
+    margin-bottom: 20px;
+}
+
+.pdf-section-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #495057;
+    margin-bottom: 15px;
+    border-left: 4px solid #0d6efd;
+    padding-left: 12px;
+}
+
+.pdf-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.pdf-stat-card {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+}
+
+.pdf-stat-number {
+    font-size: 32px;
+    font-weight: bold;
+    color: #0d6efd;
+    margin-bottom: 8px;
+}
+
+.pdf-stat-label {
+    font-size: 14px;
+    color: #6c757d;
+    line-height: 1.4;
+}
+
+.pdf-region-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.pdf-region-card {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 15px;
+}
+
+.pdf-region-name {
+    font-weight: bold;
+    color: #495057;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 5px;
+}
+
+.pdf-region-stats {
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.pdf-age-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.pdf-age-card {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 15px;
+}
+
+.pdf-age-title {
+    font-weight: bold;
+    color: #495057;
+    margin-bottom: 10px;
+}
+
+.pdf-age-stats {
+    font-size: 13px;
+    line-height: 1.6;
+}
+
 .drop-zone {
     border: 2px dashed #dee2e6;
     border-radius: 8px;
