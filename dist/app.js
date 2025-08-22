@@ -4,6 +4,7 @@ import { DataManager } from './data-manager.js';
 import { CalendarManager } from './calendar-manager.js';
 export class App {
     constructor() {
+        this.currentData = [];
         this.excelProcessor = new ExcelProcessor();
         this.reportGenerator = new ReportGenerator();
         this.dataManager = DataManager.getInstance();
@@ -116,15 +117,15 @@ export class App {
     }
     refreshCurrentReport() {
         // 現在表示されているレポートを再生成
-        const reportContainer = document.getElementById('reportContainer');
-        if (reportContainer && reportContainer.innerHTML.trim() !== '') {
-            // 日報か月報かを判定して再生成
-            if (reportContainer.querySelector('.report-title')?.textContent?.includes('日報')) {
-                this.generateDailyReport();
-            }
-            else if (reportContainer.querySelector('.report-title')?.textContent?.includes('月報')) {
-                this.generateMonthlyReport();
-            }
+        const dailyContainer = document.getElementById('dailyReportContent');
+        const monthlyContainer = document.getElementById('monthlyReportContent');
+        if (dailyContainer && dailyContainer.innerHTML.trim() !== '' &&
+            dailyContainer.querySelector('.report-title')?.textContent?.includes('日報')) {
+            this.generateDailyReport();
+        }
+        else if (monthlyContainer && monthlyContainer.innerHTML.trim() !== '' &&
+            monthlyContainer.querySelector('.report-title')?.textContent?.includes('月報')) {
+            this.generateMonthlyReport();
         }
     }
     // ファイルアップロード処理
@@ -135,6 +136,10 @@ export class App {
             const data = await this.excelProcessor.readExcelFile(file);
             // データを保存
             this.dataManager.setData(data);
+            // 現在のデータを保存
+            this.currentData = data;
+            // 担当別データを即座に更新
+            this.updateStaffData();
             console.log('ファイル処理完了:', data.length, '件');
             // 成功メッセージを表示
             this.showMessage('ファイルの読み込みが完了しました。', 'success');
@@ -193,21 +198,46 @@ export class App {
     }
     // レポート表示
     displayReport(report, type) {
-        const reportContainer = document.getElementById('reportContainer');
-        if (!reportContainer)
-            return;
         if (type === 'daily') {
-            reportContainer.innerHTML = this.reportGenerator.createDailyReportHTML(report);
+            const dailyContainer = document.getElementById('dailyReportContent');
+            if (dailyContainer) {
+                dailyContainer.innerHTML = this.reportGenerator.createDailyReportHTML(report);
+            }
         }
         else {
-            reportContainer.innerHTML = this.reportGenerator.createMonthlyReportHTML(report);
+            const monthlyContainer = document.getElementById('monthlyReportContent');
+            if (monthlyContainer) {
+                monthlyContainer.innerHTML = this.reportGenerator.createMonthlyReportHTML(report);
+            }
         }
+        // 担当別データも更新
+        this.updateStaffData();
         // エクスポートボタンのイベントリスナーを設定
         this.setupExportButtons(type, report);
     }
+    // 担当別データを更新
+    updateStaffData() {
+        console.log('担当別データ更新開始, currentDataの件数:', this.currentData?.length || 0);
+        if (this.currentData && this.currentData.length > 0) {
+            const staffData = this.reportGenerator.generateStaffData(this.currentData);
+            console.log('担当別データ生成完了, 担当者数:', staffData?.length || 0);
+            const staffContainer = document.getElementById('staffDataContent');
+            if (staffContainer) {
+                staffContainer.innerHTML = this.reportGenerator.createStaffDataHTML(staffData);
+                console.log('担当別データHTMLを更新しました');
+            }
+            else {
+                console.error('staffDataContent要素が見つかりません');
+            }
+        }
+        else {
+            console.log('データがないため担当別データを更新できません');
+        }
+    }
     // エクスポートボタンの設定
     setupExportButtons(type, report) {
-        const exportButtons = document.querySelectorAll(`#reportContainer .btn-export`);
+        const containerSelector = type === 'daily' ? '#dailyReportContent' : '#monthlyReportContent';
+        const exportButtons = document.querySelectorAll(`${containerSelector} .btn-export`);
         exportButtons.forEach(button => {
             button.addEventListener('click', async (e) => {
                 const target = e.target;

@@ -3,6 +3,7 @@ export declare class App {
     private reportGenerator;
     private dataManager;
     private calendarManager;
+    private currentData;
     constructor();
     private initializeApp;
     private setupEventListeners;
@@ -15,6 +16,7 @@ export declare class App {
     private generateDailyReport;
     private generateMonthlyReport;
     private displayReport;
+    private updateStaffData;
     private setupExportButtons;
     private showMessage;
     private setDefaultDate;

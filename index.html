@@ -199,10 +199,12 @@
                             <i class="fas fa-database me-2"></i>データ確認
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="staff-data-tab" data-bs-toggle="tab" data-bs-target="#staff-data" type="button" role="tab">
+                            <i class="fas fa-users me-2"></i>担当別データ
+                        </button>
+                    </li>
                 </ul>
-                
-                <!-- レポート表示エリア -->
-                <div id="reportContainer" class="mt-4"></div>
                 
                 <!-- タブコンテンツ -->
                 <div class="tab-content" id="reportTabContent">
@@ -251,6 +253,23 @@
                                     <div class="text-center text-muted py-5">
                                         <i class="fas fa-database fa-3x mb-3"></i>
                                         <p>Excelファイルをアップロードしてデータを確認してください</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 担当別データタブ -->
+                    <div class="tab-pane fade" id="staff-data" role="tabpanel">
+                        <div class="card mt-3">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0"><i class="fas fa-users me-2"></i>担当別データ</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="staffDataContent">
+                                    <div class="text-center text-muted py-5">
+                                        <i class="fas fa-users fa-3x mb-3"></i>
+                                        <p>Excelファイルをアップロードして担当別データを確認してください</p>
                                     </div>
                                 </div>
                             </div>

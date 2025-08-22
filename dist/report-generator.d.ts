@@ -1,4 +1,4 @@
-import { HolidaySettings } from './types.js';
+import { HolidaySettings, StaffData } from './types.js';
 export declare class ReportGenerator {
     private currentTargetDate;
     private holidaySettings;
@@ -19,6 +19,12 @@ export declare class ReportGenerator {
     private getTotalSingle;
     private getTotalHolidayConstruction;
     private getTotalProhibitedConstruction;
+    private isOrderForDate;
+    private calculateElderlyStaffRanking;
+    private calculateSingleContractRanking;
+    private calculateExcessiveSalesRanking;
+    private calculateNormalAgeStaffRanking;
+    private assignRanks;
     createDailyReportHTML(report: any): string;
     createMonthlyReportHTML(report: any): string;
     private createRegionStatsHTML;
@@ -26,4 +32,9 @@ export declare class ReportGenerator {
     exportToPDF(report: any, type: string): Promise<void>;
     private createPDFHTML;
     exportToCSV(report: any, type: string): Promise<void>;
+    private exportStaffRankingCSVs;
+    private downloadCSV;
+    private createRankingTableHTML;
+    generateStaffData(data: any[]): StaffData[];
+    createStaffDataHTML(staffData: StaffData[]): string;
 }

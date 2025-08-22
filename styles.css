@@ -576,3 +576,105 @@ body {
     color: #6c757d;
     line-height: 1.3;
 }
+
+/* PDF用担当者別ランキングセクション */
+.pdf-ranking-section {
+    margin-bottom: 25px;
+}
+
+.pdf-ranking-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #495057;
+    margin-bottom: 10px;
+    padding: 8px;
+    background-color: #f8f9fa;
+    border-left: 4px solid #007bff;
+}
+
+.pdf-ranking-table {
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.pdf-ranking-header {
+    display: grid;
+    grid-template-columns: 80px 80px 80px 120px 80px;
+    background-color: #e9ecef;
+    font-weight: bold;
+    font-size: 11px;
+}
+
+.pdf-ranking-row {
+    display: grid;
+    grid-template-columns: 80px 80px 80px 120px 80px;
+    border-top: 1px solid #dee2e6;
+    font-size: 11px;
+}
+
+.pdf-ranking-cell {
+    padding: 6px 4px;
+    text-align: center;
+    border-right: 1px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pdf-ranking-cell:last-child {
+    border-right: none;
+}
+
+.pdf-ranking-header .pdf-ranking-cell {
+    background-color: #e9ecef;
+    font-weight: bold;
+}
+
+/* HTML表示用ランキングセクション */
+.ranking-section {
+    margin-bottom: 2rem;
+}
+
+.ranking-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: linear-gradient(90deg, #f8f9fa 0%, #e9ecef 100%);
+    border-left: 4px solid #007bff;
+    border-radius: 0.25rem;
+}
+
+.ranking-section .table {
+    margin-bottom: 0;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border-radius: 0.375rem;
+    overflow: hidden;
+}
+
+.ranking-section .table th {
+    background: linear-gradient(90deg, #343a40 0%, #495057 100%);
+    color: white;
+    font-weight: 600;
+    border: none;
+    padding: 0.875rem 0.75rem;
+}
+
+.ranking-section .table td {
+    padding: 0.75rem;
+    vertical-align: middle;
+    border-color: #e9ecef;
+}
+
+.ranking-section .table tbody tr:hover {
+    background-color: #f8f9fa;
+    transform: translateY(-1px);
+    transition: all 0.2s ease;
+}
+
+.ranking-section .badge {
+    font-size: 0.875rem;
+    padding: 0.5rem 0.75rem;
+}

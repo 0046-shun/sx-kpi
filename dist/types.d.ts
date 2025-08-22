@@ -129,3 +129,29 @@ export interface ExportSettings {
     includeStatistics: boolean;
     fileName?: string;
 }
+export interface StaffRanking {
+    rank: number;
+    regionNo: string;
+    departmentNo: string;
+    staffName: string;
+    count: number;
+}
+export interface StaffData {
+    regionNo: string;
+    departmentNo: string;
+    staffName: string;
+    totalOrders: number;
+    normalAgeOrders: number;
+    elderlyOrders: number;
+    singleOrders: number;
+    excessiveOrders: number;
+    overtimeOrders: number;
+}
+export interface MonthlyReportData extends ReportData {
+    selectedMonth: number;
+    selectedYear: number;
+    elderlyStaffRanking: StaffRanking[];
+    singleContractRanking: StaffRanking[];
+    excessiveSalesRanking: StaffRanking[];
+    normalAgeStaffRanking: StaffRanking[];
+}

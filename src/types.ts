@@ -146,3 +146,35 @@ export interface ExportSettings {
     includeStatistics: boolean;
     fileName?: string;
 }
+
+// 担当者別ランキングの型定義
+export interface StaffRanking {
+    rank: number;
+    regionNo: string;
+    departmentNo: string;
+    staffName: string;
+    count: number;
+}
+
+export interface StaffData {
+    regionNo: string;
+    departmentNo: string;
+    staffName: string;
+    totalOrders: number;
+    normalAgeOrders: number;
+    elderlyOrders: number;
+    singleOrders: number;
+    excessiveOrders: number;
+    overtimeOrders: number;
+}
+
+// 月報データの型定義（拡張）
+export interface MonthlyReportData extends ReportData {
+    selectedMonth: number;
+    selectedYear: number;
+    // 担当者別ランキング
+    elderlyStaffRanking: StaffRanking[];
+    singleContractRanking: StaffRanking[];
+    excessiveSalesRanking: StaffRanking[];
+    normalAgeStaffRanking: StaffRanking[];
+}

@@ -6,10 +6,10 @@ export declare class ExcelProcessor {
     private parseTime;
     private parseAge;
     private isOrder;
+    private isSingle;
+    private isExcessive;
     private isOvertime;
     private isElderly;
-    private isExcessive;
-    private isSingle;
     private getCurrentDateFilter;
     private getRegionName;
 }
