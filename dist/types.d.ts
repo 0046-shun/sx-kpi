@@ -7,6 +7,10 @@ declare global {
     const XLSX: any;
     const jsPDF: any;
 }
+export interface HolidaySettings {
+    publicHolidays: Date[];
+    prohibitedDays: Date[];
+}
 export interface OrderData {
     rowNumber: number;
     date: Date | null;
@@ -47,6 +51,8 @@ export interface OrderData {
     isExcessive: boolean;
     isSingle: boolean;
     region: string;
+    isHolidayConstruction: boolean;
+    isProhibitedConstruction: boolean;
 }
 export interface ReportData {
     type: 'daily' | 'monthly';
@@ -62,6 +68,8 @@ export interface RegionStats {
         overtime: number;
         excessive: number;
         single: number;
+        holidayConstruction: number;
+        prohibitedConstruction: number;
     };
 }
 export interface AgeStats {
@@ -88,7 +96,25 @@ export interface DataStatistics {
         elderly: number;
         normal: number;
     };
-    overtimeRate: string;
+    overtimeDistribution: {
+        [key: string]: number;
+    };
+    holidayConstructionDistribution: {
+        [key: string]: number;
+    };
+    prohibitedConstructionDistribution: {
+        [key: string]: number;
+    };
+}
+export interface ReportOptions {
+    includeHolidayConstruction: boolean;
+    includeProhibitedConstruction: boolean;
+    holidaySettings: HolidaySettings;
+}
+export interface CalendarSettings {
+    year: number;
+    month: number;
+    holidays: HolidaySettings;
 }
 export interface FilterSettings {
     region?: string;

@@ -350,3 +350,229 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
 }
+
+/* 公休日・禁止日設定用のカレンダースタイル */
+.calendar-container {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    background: #fff;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.calendar-month {
+    font-weight: bold;
+    font-size: 1.1em;
+    color: #495057;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+}
+
+.calendar-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e9ecef;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.calendar-day:hover {
+    background-color: #f8f9fa;
+    border-color: #007bff;
+}
+
+.calendar-day.weekday {
+    background-color: #f8f9fa;
+    color: #6c757d;
+}
+
+.calendar-day.weekend {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.calendar-day.selected-public {
+    background-color: #d4edda;
+    border-color: #28a745;
+    color: #155724;
+}
+
+.calendar-day.selected-prohibited {
+    background-color: #f8d7da;
+    border-color: #dc3545;
+    color: #721c24;
+}
+
+.calendar-day.today {
+    border: 2px solid #007bff;
+    font-weight: bold;
+}
+
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 5px;
+}
+
+.calendar-weekday {
+    text-align: center;
+    font-weight: bold;
+    font-size: 0.8em;
+    color: #495057;
+    padding: 5px;
+}
+
+.calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+}
+
+.calendar-day.other-month {
+    color: #adb5bd;
+    background-color: #f8f9fa;
+}
+
+.holiday-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.holiday-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    margin: 4px 0;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+    border-left: 4px solid;
+}
+
+.holiday-item.public {
+    border-left-color: #28a745;
+    background-color: #d4edda;
+}
+
+.holiday-item.prohibited {
+    border-left-color: #dc3545;
+    background-color: #f8d7da;
+}
+
+.holiday-date {
+    font-weight: 500;
+}
+
+.holiday-remove {
+    background: none;
+    border: none;
+    color: #6c757d;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+.holiday-remove:hover {
+    background-color: #dc3545;
+    color: white;
+}
+
+/* 総件数セクション - コールブロック風デザイン */
+.total-stats-container {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px;
+    padding: 2rem;
+    color: white;
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+    margin-bottom: 2rem;
+}
+
+.total-stats-title {
+    color: white;
+    margin-bottom: 1.5rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.total-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.total-stat-item {
+    text-align: center;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.total-stat-item:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.total-stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: white;
+}
+
+.total-stat-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.2;
+}
+
+/* PDF用総件数セクション */
+.pdf-total-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.pdf-total-stat-item {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+}
+
+.pdf-total-stat-number {
+    font-size: 24px;
+    font-weight: bold;
+    color: #0d6efd;
+    margin-bottom: 8px;
+}
+
+.pdf-total-stat-label {
+    font-size: 12px;
+    color: #6c757d;
+    line-height: 1.3;
+}

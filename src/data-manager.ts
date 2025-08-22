@@ -1,4 +1,113 @@
+import { HolidaySettings, CalendarSettings } from './types.js';
+
 export class DataManager {
+    private static instance: DataManager;
+    private data: any[] = [];
+    private holidaySettings: HolidaySettings = {
+        publicHolidays: [],
+        prohibitedDays: []
+    };
+    
+    private constructor() {
+        this.loadHolidaySettings();
+    }
+    
+    static getInstance(): DataManager {
+        if (!DataManager.instance) {
+            DataManager.instance = new DataManager();
+        }
+        return DataManager.instance;
+    }
+    
+    setData(data: any[]): void {
+        this.data = data;
+    }
+    
+    getData(): any[] {
+        return this.data;
+    }
+    
+    // 公休日・禁止日設定の管理
+    getHolidaySettings(): HolidaySettings {
+        return { ...this.holidaySettings };
+    }
+    
+    setHolidaySettings(settings: HolidaySettings): void {
+        this.holidaySettings = settings;
+        this.saveHolidaySettings();
+    }
+    
+    addPublicHoliday(date: Date): void {
+        const dateStr = this.formatDateForStorage(date);
+        if (!this.holidaySettings.publicHolidays.some(d => this.formatDateForStorage(d) === dateStr)) {
+            this.holidaySettings.publicHolidays.push(date);
+            this.saveHolidaySettings();
+        }
+    }
+    
+    removePublicHoliday(date: Date): void {
+        const dateStr = this.formatDateForStorage(date);
+        this.holidaySettings.publicHolidays = this.holidaySettings.publicHolidays.filter(
+            d => this.formatDateForStorage(d) !== dateStr
+        );
+        this.saveHolidaySettings();
+    }
+    
+    addProhibitedDay(date: Date): void {
+        const dateStr = this.formatDateForStorage(date);
+        if (!this.holidaySettings.prohibitedDays.some(d => this.formatDateForStorage(d) === dateStr)) {
+            this.holidaySettings.prohibitedDays.push(date);
+            this.saveHolidaySettings();
+        }
+    }
+    
+    removeProhibitedDay(date: Date): void {
+        const dateStr = this.formatDateForStorage(date);
+        this.holidaySettings.prohibitedDays = this.holidaySettings.prohibitedDays.filter(
+            d => this.formatDateForStorage(d) !== dateStr
+        );
+        this.saveHolidaySettings();
+    }
+    
+    isPublicHoliday(date: Date): boolean {
+        const dateStr = this.formatDateForStorage(date);
+        return this.holidaySettings.publicHolidays.some(d => this.formatDateForStorage(d) === dateStr);
+    }
+    
+    isProhibitedDay(date: Date): boolean {
+        const dateStr = this.formatDateForStorage(date);
+        return this.holidaySettings.prohibitedDays.some(d => this.formatDateForStorage(d) === dateStr);
+    }
+    
+    private formatDateForStorage(date: Date): string {
+        return date.toISOString().split('T')[0];
+    }
+    
+    private saveHolidaySettings(): void {
+        try {
+            localStorage.setItem('holidaySettings', JSON.stringify({
+                publicHolidays: this.holidaySettings.publicHolidays.map(d => d.toISOString()),
+                prohibitedDays: this.holidaySettings.prohibitedDays.map(d => d.toISOString())
+            }));
+        } catch (error) {
+            console.error('公休日設定の保存に失敗しました:', error);
+        }
+    }
+    
+    private loadHolidaySettings(): void {
+        try {
+            const saved = localStorage.getItem('holidaySettings');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                this.holidaySettings = {
+                    publicHolidays: parsed.publicHolidays.map((d: string) => new Date(d)),
+                    prohibitedDays: parsed.prohibitedDays.map((d: string) => new Date(d))
+                };
+            }
+        } catch (error) {
+            console.error('公休日設定の読み込みに失敗しました:', error);
+        }
+    }
     
     private readonly STORAGE_KEY = 'daily_monthly_report_data';
     

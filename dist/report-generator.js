@@ -1,6 +1,50 @@
 export class ReportGenerator {
     constructor() {
         this.currentTargetDate = null;
+        this.holidaySettings = {
+            publicHolidays: [],
+            prohibitedDays: []
+        };
+    }
+    // 公休日・禁止日設定を更新
+    updateHolidaySettings(settings) {
+        this.holidaySettings = settings;
+    }
+    // 公休日施工の判定
+    isHolidayConstruction(row) {
+        // T列（着工日）が公休日 → カウント
+        if (row.startDate && this.isPublicHoliday(row.startDate)) {
+            return true;
+        }
+        // T列でカウントされていない場合のみ、V列（完工予定日）を照合
+        if (!row.startDate || !this.isPublicHoliday(row.startDate)) {
+            if (row.completionDate && this.isPublicHoliday(row.completionDate)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    // 禁止日施工の判定
+    isProhibitedConstruction(row) {
+        // T列（着工日）が禁止日 → カウント
+        if (row.startDate && this.isProhibitedDay(row.startDate)) {
+            return true;
+        }
+        // T列でカウントされていない場合のみ、V列（完工予定日）を照合
+        if (!row.startDate || !this.isProhibitedDay(row.startDate)) {
+            if (row.completionDate && this.isProhibitedDay(row.completionDate)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    // 公休日かどうかの判定
+    isPublicHoliday(date) {
+        return this.holidaySettings.publicHolidays.some(holiday => this.isSameDate(date, holiday));
+    }
+    // 禁止日かどうかの判定
+    isProhibitedDay(date) {
+        return this.holidaySettings.prohibitedDays.some(prohibited => this.isSameDate(date, prohibited));
     }
     generateDailyReport(data, date) {
         const targetDate = new Date(date);
@@ -303,11 +347,11 @@ export class ReportGenerator {
     }
     calculateRegionStats(data) {
         const regions = {
-            '九州地区': { orders: 0, overtime: 0, excessive: 0, single: 0 },
-            '中四国地区': { orders: 0, overtime: 0, excessive: 0, single: 0 },
-            '関西地区': { orders: 0, overtime: 0, excessive: 0, single: 0 },
-            '関東地区': { orders: 0, overtime: 0, excessive: 0, single: 0 },
-            'その他': { orders: 0, overtime: 0, excessive: 0, single: 0 }
+            '九州地区': { orders: 0, overtime: 0, excessive: 0, single: 0, holidayConstruction: 0, prohibitedConstruction: 0 },
+            '中四国地区': { orders: 0, overtime: 0, excessive: 0, single: 0, holidayConstruction: 0, prohibitedConstruction: 0 },
+            '関西地区': { orders: 0, overtime: 0, excessive: 0, single: 0, holidayConstruction: 0, prohibitedConstruction: 0 },
+            '関東地区': { orders: 0, overtime: 0, excessive: 0, single: 0, holidayConstruction: 0, prohibitedConstruction: 0 },
+            'その他': { orders: 0, overtime: 0, excessive: 0, single: 0, holidayConstruction: 0, prohibitedConstruction: 0 }
         };
         data.forEach(row => {
             const region = row.region;
@@ -319,6 +363,15 @@ export class ReportGenerator {
                 }
                 if (row.isSingle) {
                     regions[region].single++;
+                }
+                // 公休日・禁止日施工の判定と集計
+                // T列（着工日）が公休日・禁止日 → カウント
+                // T列でカウントされていない場合のみ、V列（完工予定日）を照合
+                if (this.isHolidayConstruction(row)) {
+                    regions[region].holidayConstruction++;
+                }
+                if (this.isProhibitedConstruction(row)) {
+                    regions[region].prohibitedConstruction++;
                 }
             }
         });
@@ -357,6 +410,30 @@ export class ReportGenerator {
             date1.getMonth() === date2.getMonth() &&
             date1.getDate() === date2.getDate();
     }
+    // 総過量販売件数を取得
+    getTotalExcessive(regionStats) {
+        return Object.values(regionStats).reduce((total, stats) => {
+            return total + (stats.excessive || 0);
+        }, 0);
+    }
+    // 総単独契約件数を取得
+    getTotalSingle(regionStats) {
+        return Object.values(regionStats).reduce((total, stats) => {
+            return total + (stats.single || 0);
+        }, 0);
+    }
+    // 総公休日施工件数を取得
+    getTotalHolidayConstruction(regionStats) {
+        return Object.values(regionStats).reduce((total, stats) => {
+            return total + (stats.holidayConstruction || 0);
+        }, 0);
+    }
+    // 総禁止日施工件数を取得
+    getTotalProhibitedConstruction(regionStats) {
+        return Object.values(regionStats).reduce((total, stats) => {
+            return total + (stats.prohibitedConstruction || 0);
+        }, 0);
+    }
     createDailyReportHTML(report) {
         // 選択された日付から日付テキストを取得
         const selectedDate = report.selectedDate ? new Date(report.selectedDate) : new Date();
@@ -368,17 +445,34 @@ export class ReportGenerator {
                 </h3>
                 
                 <!-- 基本統計 -->
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <div class="stat-card">
-                            <div class="stat-number">${report.totalOrders}</div>
-                            <div class="stat-label">総受注件数</div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="stat-card">
-                            <div class="stat-number">${report.overtimeOrders}</div>
-                            <div class="stat-label">総時間外対応件数<br>(18:30以降)</div>
+                <div class="mb-4">
+                    <div class="total-stats-container">
+                        <h5 class="total-stats-title"><i class="fas fa-chart-bar me-2"></i>総件数</h5>
+                        <div class="total-stats-grid">
+                            <div class="total-stat-item">
+                                <div class="total-stat-number">${report.totalOrders}</div>
+                                <div class="total-stat-label">受注件数</div>
+                            </div>
+                            <div class="total-stat-item">
+                                <div class="stat-number">${report.overtimeOrders}</div>
+                                <div class="total-stat-label">時間外対応</div>
+                            </div>
+                            <div class="total-stat-item">
+                                <div class="total-stat-number">${this.getTotalExcessive(report.regionStats)}</div>
+                                <div class="total-stat-label">過量販売</div>
+                            </div>
+                            <div class="total-stat-item">
+                                <div class="total-stat-number">${this.getTotalSingle(report.regionStats)}</div>
+                                <div class="total-stat-label">単独契約</div>
+                            </div>
+                            <div class="total-stat-item">
+                                <div class="total-stat-number">${this.getTotalHolidayConstruction(report.regionStats)}</div>
+                                <div class="total-stat-label">公休日施工</div>
+                            </div>
+                            <div class="total-stat-item">
+                                <div class="total-stat-number">${this.getTotalProhibitedConstruction(report.regionStats)}</div>
+                                <div class="total-stat-label">禁止日施工</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -418,17 +512,34 @@ export class ReportGenerator {
                 </h3>
                 
                 <!-- 基本統計 -->
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <div class="stat-card">
-                            <div class="stat-number">${report.totalOrders}</div>
-                            <div class="stat-label">総受注件数</div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="stat-card">
-                            <div class="stat-number">${report.overtimeOrders}</div>
-                            <div class="stat-label">総時間外対応件数<br>(18:30以降)</div>
+                <div class="mb-4">
+                    <div class="total-stats-container">
+                        <h5 class="total-stats-title"><i class="fas fa-chart-bar me-2"></i>総件数</h5>
+                        <div class="total-stats-grid">
+                            <div class="total-stat-item">
+                                <div class="total-stat-number">${report.totalOrders}</div>
+                                <div class="total-stat-label">受注件数</div>
+                            </div>
+                            <div class="total-stat-item">
+                                <div class="total-stat-number">${report.overtimeOrders}</div>
+                                <div class="total-stat-label">時間外対応</div>
+                            </div>
+                            <div class="total-stat-item">
+                                <div class="total-stat-number">${this.getTotalExcessive(report.regionStats)}</div>
+                                <div class="total-stat-label">過量販売</div>
+                            </div>
+                            <div class="total-stat-item">
+                                <div class="total-stat-number">${this.getTotalSingle(report.regionStats)}</div>
+                                <div class="total-stat-label">単独契約</div>
+                            </div>
+                            <div class="total-stat-item">
+                                <div class="total-stat-number">${this.getTotalHolidayConstruction(report.regionStats)}</div>
+                                <div class="total-stat-label">公休日施工</div>
+                            </div>
+                            <div class="total-stat-item">
+                                <div class="total-stat-number">${this.getTotalProhibitedConstruction(report.regionStats)}</div>
+                                <div class="total-stat-label">禁止日施工</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -481,6 +592,14 @@ export class ReportGenerator {
                                 <div class="region-stat">
                                     <div class="region-stat-number">${stats.single}</div>
                                     <div class="region-stat-label">単独契約</div>
+                                </div>
+                                <div class="region-stat">
+                                    <div class="region-stat-number">${stats.holidayConstruction}</div>
+                                    <div class="region-stat-label">公休日施工</div>
+                                </div>
+                                <div class="region-stat">
+                                    <div class="region-stat-number">${stats.prohibitedConstruction}</div>
+                                    <div class="region-stat-label">禁止日施工</div>
                                 </div>
                             </div>
                         </div>
@@ -607,19 +726,36 @@ export class ReportGenerator {
                 <div class="pdf-date">${dateText}</div>
             </div>
             
-            <!-- 基本統計 -->
-            <div class="pdf-section">
-                <div class="pdf-stats-grid">
-                    <div class="pdf-stat-card">
-                        <div class="pdf-stat-number">${report.totalOrders}</div>
-                        <div class="pdf-stat-label">総受注件数</div>
-                    </div>
-                    <div class="pdf-stat-card">
-                        <div class="pdf-stat-number">${report.overtimeOrders}</div>
-                        <div class="pdf-stat-label">総時間外対応件数<br>(18:30以降)</div>
+                            <!-- 基本統計 -->
+                <div class="pdf-section">
+                    <div class="pdf-section-title">総件数</div>
+                    <div class="pdf-total-stats-grid">
+                        <div class="pdf-total-stat-item">
+                            <div class="pdf-total-stat-number">${report.totalOrders}</div>
+                            <div class="pdf-total-stat-label">受注件数</div>
+                        </div>
+                        <div class="pdf-total-stat-item">
+                            <div class="pdf-total-stat-number">${report.overtimeOrders}</div>
+                            <div class="pdf-total-stat-label">時間外対応</div>
+                        </div>
+                        <div class="pdf-total-stat-item">
+                            <div class="pdf-total-stat-number">${this.getTotalExcessive(report.regionStats)}</div>
+                            <div class="pdf-total-stat-label">過量販売</div>
+                        </div>
+                        <div class="pdf-total-stat-item">
+                            <div class="pdf-total-stat-number">${this.getTotalSingle(report.regionStats)}</div>
+                            <div class="pdf-total-stat-label">単独契約</div>
+                        </div>
+                        <div class="pdf-total-stat-item">
+                            <div class="pdf-total-stat-number">${this.getTotalHolidayConstruction(report.regionStats)}</div>
+                            <div class="pdf-total-stat-label">公休日施工</div>
+                        </div>
+                        <div class="pdf-total-stat-item">
+                            <div class="pdf-total-stat-number">${this.getTotalProhibitedConstruction(report.regionStats)}</div>
+                            <div class="pdf-total-stat-label">禁止日施工</div>
+                        </div>
                     </div>
                 </div>
-            </div>
             
             <!-- 地区別受注件数 -->
             <div class="pdf-section">
@@ -634,7 +770,9 @@ export class ReportGenerator {
                                     受注件数: ${stats.orders}件<br>
                                     時間外対応: ${stats.overtime}件<br>
                                     過量販売: ${stats.excessive}件<br>
-                                    単独契約: ${stats.single}件
+                                    単独契約: ${stats.single}件<br>
+                                    公休日施工: ${stats.holidayConstruction}件<br>
+                                    禁止日施工: ${stats.prohibitedConstruction}件
                                 </div>
                             </div>
                         `).join('')}
@@ -667,23 +805,41 @@ export class ReportGenerator {
     }
     async exportToCSV(report, type) {
         try {
-            // CSVデータの作成
+            // CSVデータの作成（横項目形式）
             const csvData = [
-                ['項目', '値'],
-                ['総受注件数', report.totalOrders.toString()],
-                ['総時間外対応件数', report.overtimeOrders.toString()],
+                // ヘッダー行
+                ['項目', '受注件数', '時間外対応', '過量販売', '単独契約', '公休日施工', '禁止日施工'],
+                // 総件数行
+                ['総件数', report.totalOrders.toString(), report.overtimeOrders.toString(),
+                    this.getTotalExcessive(report.regionStats).toString(),
+                    this.getTotalSingle(report.regionStats).toString(),
+                    this.getTotalHolidayConstruction(report.regionStats).toString(),
+                    this.getTotalProhibitedConstruction(report.regionStats).toString()],
                 [''],
-                ['地区別受注件数', ''],
+                // 地区別受注件数ヘッダー
+                ['地区別受注件数', '受注件数', '時間外対応', '過量販売', '単独契約', '公休日施工', '禁止日施工'],
+                // 各地区のデータ
                 ...Object.entries(report.regionStats)
                     .filter(([_, stats]) => stats.orders > 0)
-                    .map(([region, stats]) => [region, `${stats.orders}件 (時間外: ${stats.overtime}件, 過量: ${stats.excessive}件, 単独: ${stats.single}件)`]),
+                    .map(([region, stats]) => [
+                    region,
+                    stats.orders.toString(),
+                    stats.overtime.toString(),
+                    stats.excessive.toString(),
+                    stats.single.toString(),
+                    stats.holidayConstruction.toString(),
+                    stats.prohibitedConstruction.toString()
+                ]),
                 [''],
-                ['年齢別集計', ''],
-                ['高齢者(70歳以上)', report.ageStats.elderly.total + '件'],
-                ['- 過量販売', report.ageStats.elderly.excessive + '件'],
-                ['- 単独契約', report.ageStats.elderly.single + '件'],
-                ['通常年齢(69歳以下)', report.ageStats.normal.total + '件'],
-                ['- 過量販売', report.ageStats.normal.excessive + '件']
+                // 年齢別集計ヘッダー
+                ['年齢別集計', '総件数', '過量販売', '単独契約', '', '', ''],
+                // 高齢者データ
+                ['高齢者（70歳以上）', report.ageStats.elderly.total.toString(),
+                    report.ageStats.elderly.excessive.toString(),
+                    report.ageStats.elderly.single.toString(), '', '', ''],
+                // 通常年齢データ
+                ['通常年齢（69歳以下）', report.ageStats.normal.total.toString(),
+                    report.ageStats.normal.excessive.toString(), '', '', '', '']
             ];
             // CSV文字列の作成（強化されたUTF-8エンコーディング）
             const csvContent = csvData.map(row => row.map(cell => {

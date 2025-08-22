@@ -116,6 +116,8 @@ export class ExcelProcessor {
                 isExcessive: this.isExcessive(row[10]), // 過量販売判定
                 isSingle: this.isSingle(row[10]), // 単独契約判定
                 region: this.getRegionName(row[2]), // 地区名
+                isHolidayConstruction: false, // 公休日施工（動的に計算）
+                isProhibitedConstruction: false, // 禁止日施工（動的に計算）
                 
                 // デバッグ用フィールド
                 debugJ: row[9], // J列の確認区分

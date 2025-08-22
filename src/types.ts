@@ -11,6 +11,12 @@ declare global {
     const jsPDF: any;
 }
 
+// 公休日・禁止日設定の型定義
+export interface HolidaySettings {
+    publicHolidays: Date[];  // 公休日
+    prohibitedDays: Date[];  // 禁止日
+}
+
 // 受注データの型定義
 export interface OrderData {
     rowNumber: number;
@@ -54,6 +60,8 @@ export interface OrderData {
     isExcessive: boolean;
     isSingle: boolean;
     region: string;
+    isHolidayConstruction: boolean;  // 公休日施工
+    isProhibitedConstruction: boolean;  // 禁止日施工
 }
 
 // レポートデータの型定義
@@ -73,6 +81,8 @@ export interface RegionStats {
         overtime: number;
         excessive: number;
         single: number;
+        holidayConstruction: number;  // 公休日施工
+        prohibitedConstruction: number;  // 禁止日施工
     };
 }
 
@@ -101,7 +111,23 @@ export interface DataStatistics {
         elderly: number;
         normal: number;
     };
-    overtimeRate: string;
+    overtimeDistribution: { [key: string]: number };
+    holidayConstructionDistribution: { [key: string]: number };  // 公休日施工分布
+    prohibitedConstructionDistribution: { [key: string]: number };  // 禁止日施工分布
+}
+
+// レポート生成オプション
+export interface ReportOptions {
+    includeHolidayConstruction: boolean;
+    includeProhibitedConstruction: boolean;
+    holidaySettings: HolidaySettings;
+}
+
+// カレンダー設定の型定義
+export interface CalendarSettings {
+    year: number;
+    month: number;
+    holidays: HolidaySettings;
 }
 
 // フィルタ設定の型定義

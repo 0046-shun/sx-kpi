@@ -18,6 +18,92 @@
             </h1>
         </header>
 
+        <!-- 公休日・禁止日設定モーダル -->
+        <div class="modal fade" id="holidaySettingsModal" tabindex="-1" aria-labelledby="holidaySettingsModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="holidaySettingsModalLabel">
+                            <i class="fas fa-calendar-alt me-2"></i>公休日・禁止日設定
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="mb-3">
+                                    <i class="fas fa-calendar-day me-2 text-success"></i>公休日設定
+                                </h6>
+                                <div class="calendar-container">
+                                    <div class="calendar-header">
+                                        <button class="btn btn-sm btn-outline-secondary" id="prevMonthPublic">
+                                            <i class="fas fa-chevron-left"></i>
+                                        </button>
+                                        <span id="currentMonthPublic" class="calendar-month"></span>
+                                        <button class="btn btn-sm btn-outline-secondary" id="nextMonthPublic">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </button>
+                                    </div>
+                                    <div id="publicHolidayCalendar" class="calendar-grid"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="mb-3">
+                                    <i class="fas fa-calendar-times me-2 text-danger"></i>禁止日設定
+                                </h6>
+                                <div class="calendar-container">
+                                    <div class="calendar-header">
+                                        <button class="btn btn-sm btn-outline-secondary" id="prevMonthProhibited">
+                                            <i class="fas fa-chevron-left"></i>
+                                        </button>
+                                        <span id="currentMonthProhibited" class="calendar-month"></span>
+                                        <button class="btn btn-sm btn-outline-secondary" id="nextMonthProhibited">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </button>
+                                    </div>
+                                    <div id="prohibitedDayCalendar" class="calendar-grid"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <h6 class="mb-3">
+                                <i class="fas fa-list me-2"></i>設定済み日付一覧
+                            </h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-success text-white">
+                                            <i class="fas fa-calendar-day me-2"></i>公休日
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="publicHolidayList" class="holiday-list"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-danger text-white">
+                                            <i class="fas fa-calendar-times me-2"></i>禁止日
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="prohibitedDayList" class="holiday-list"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                        <button type="button" class="btn btn-primary" id="saveHolidaySettings">
+                            <i class="fas fa-save me-2"></i>設定を保存
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- メインコンテンツ -->
         <div class="row">
             <!-- 左サイドバー -->
@@ -27,7 +113,7 @@
                         <h5 class="mb-0"><i class="fas fa-upload me-2"></i>データアップロード</h5>
                     </div>
                     <div class="card-body">
-                        <div class="drop-zone" id="dropZone">
+                        <div class="drop-zone" id="dropArea">
                             <div class="drop-zone-content">
                                 <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
                                 <p class="mb-2">Excelファイルをドロップ</p>
@@ -59,6 +145,29 @@
                         <h5 class="mb-0"><i class="fas fa-calendar me-2"></i>日付選択</h5>
                     </div>
                     <div class="card-body">
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-calendar-day"></i>
+                                    </span>
+                                    <input type="date" class="form-control" id="dateInput" value="">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-primary" id="generateDailyReport">
+                                        <i class="fas fa-file-alt me-2"></i>日報生成
+                                    </button>
+                                    <button class="btn btn-info" id="generateMonthlyReport">
+                                        <i class="fas fa-calendar-alt me-2"></i>月報生成
+                                    </button>
+                                    <button class="btn btn-warning" id="openHolidaySettings">
+                                        <i class="fas fa-cog me-2"></i>公休日・禁止日設定
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                         <div class="mb-3">
                             <label for="reportDate" class="form-label">日報作成日</label>
                             <input type="date" class="form-control" id="reportDate">
@@ -91,7 +200,10 @@
                         </button>
                     </li>
                 </ul>
-
+                
+                <!-- レポート表示エリア -->
+                <div id="reportContainer" class="mt-4"></div>
+                
                 <!-- タブコンテンツ -->
                 <div class="tab-content" id="reportTabContent">
                     <!-- 日報タブ -->
@@ -159,6 +271,18 @@
     
     <!-- アプリケーションスクリプト -->
     <script type="module" src="dist/app.js"></script>
+    
+    <!-- モジュール読み込みエラー時のフォールバック -->
+    <script>
+        // ESモジュールの読み込みをチェック
+        window.addEventListener('error', function(e) {
+            if (e.filename && e.filename.includes('dist/')) {
+                console.error('モジュール読み込みエラー:', e.filename);
+                console.info('HTTPサーバーで実行してください: npx http-server . -p 8080');
+                console.info('その後、http://localhost:8080 にアクセスしてください');
+            }
+        }, true);
+    </script>
     
     <!-- テスト用コンソールログ -->
     <script>
