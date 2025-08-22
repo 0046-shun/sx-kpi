@@ -219,18 +219,15 @@ export class App {
             return;
         }
         
-        const dateInput = document.getElementById('dateInput') as HTMLInputElement;
-        if (!dateInput || !dateInput.value) {
-            this.showMessage('日付を選択してください。', 'error');
+        const reportMonthInput = document.getElementById('reportMonth') as HTMLInputElement;
+        if (!reportMonthInput || !reportMonthInput.value) {
+            this.showMessage('月報作成月を選択してください。', 'error');
             return;
         }
         
         try {
-            // 選択された日付から年月を取得
-            const selectedDate = new Date(dateInput.value);
-            const year = selectedDate.getFullYear();
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const monthString = `${year}-${month}`;
+            // 選択された月から年月を取得
+            const monthString = reportMonthInput.value; // 既に "YYYY-MM" 形式
             
             const report = this.reportGenerator.generateMonthlyReport(data, monthString);
             this.displayReport(report, 'monthly');
@@ -417,9 +414,18 @@ export class App {
     // デフォルト日付の設定
     private setDefaultDate(): void {
         const dateInput = document.getElementById('dateInput') as HTMLInputElement;
+        const reportMonthInput = document.getElementById('reportMonth') as HTMLInputElement;
+        
         if (dateInput) {
             const today = new Date();
             dateInput.value = today.toISOString().split('T')[0];
+        }
+        
+        if (reportMonthInput) {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            reportMonthInput.value = `${year}-${month}`;
         }
     }
 }
