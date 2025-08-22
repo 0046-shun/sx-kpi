@@ -1,17 +1,19 @@
+import { HolidaySettings, StaffData } from './types.js';
+
 export class ReportGenerator {
-    constructor() {
-        this.currentTargetDate = null;
-        this.holidaySettings = {
-            publicHolidays: [],
-            prohibitedDays: []
-        };
-    }
+    private currentTargetDate: Date | null = null;
+    private holidaySettings: HolidaySettings = {
+        publicHolidays: [],
+        prohibitedDays: []
+    };
+    
     // 公休日・禁止日設定を更新
-    updateHolidaySettings(settings) {
+    updateHolidaySettings(settings: HolidaySettings): void {
         this.holidaySettings = settings;
     }
+    
     // 公休日施工の判定
-    isHolidayConstruction(row) {
+    private isHolidayConstruction(row: any): boolean {
         // T列（着工日）が公休日 → カウント
         if (row.startDate && this.isPublicHoliday(row.startDate)) {
             return true;
@@ -24,8 +26,9 @@ export class ReportGenerator {
         }
         return false;
     }
+    
     // 禁止日施工の判定
-    isProhibitedConstruction(row) {
+    private isProhibitedConstruction(row: any): boolean {
         // T列（着工日）が禁止日 → カウント
         if (row.startDate && this.isProhibitedDay(row.startDate)) {
             return true;
@@ -38,28 +41,38 @@ export class ReportGenerator {
         }
         return false;
     }
+    
     // 公休日かどうかの判定
-    isPublicHoliday(date) {
-        return this.holidaySettings.publicHolidays.some(holiday => this.isSameDate(date, holiday));
+    private isPublicHoliday(date: Date): boolean {
+        return this.holidaySettings.publicHolidays.some(holiday => 
+            this.isSameDate(date, holiday)
+        );
     }
+    
     // 禁止日かどうかの判定
-    isProhibitedDay(date) {
-        return this.holidaySettings.prohibitedDays.some(prohibited => this.isSameDate(date, prohibited));
+    private isProhibitedDay(date: Date): boolean {
+        return this.holidaySettings.prohibitedDays.some(prohibited => 
+            this.isSameDate(date, prohibited)
+        );
     }
-    generateDailyReport(data, date) {
+    
+    generateDailyReport(data: any[], date: string): any {
         const targetDate = new Date(date);
         this.currentTargetDate = targetDate; // 時間外判定で使用
         const targetMonth = targetDate.getMonth();
         const targetDay = targetDate.getDate();
+        
         console.log('日報生成開始:', {
             targetDate: targetDate.toLocaleDateString(),
             targetMonth: targetMonth,
             targetDay: targetDay,
             totalData: data.length
         });
+        
         const dailyData = data.filter(row => {
             // A列の日付チェック
             let isDateMatch = false;
+            
             if (row.date && row.date instanceof Date) {
                 const rowMonth = row.date.getMonth();
                 const rowDay = row.date.getDate();
@@ -67,14 +80,17 @@ export class ReportGenerator {
                     isDateMatch = true;
                 }
             }
+            
             // K列の日付チェック（A列でマッチしない場合）
             if (!isDateMatch && row.confirmationDateTime) {
                 const kColumnStr = String(row.confirmationDateTime);
                 const targetDateStr = `${targetMonth + 1}/${targetDay}`;
                 const targetDateStrAlt = `${targetMonth + 1}月${targetDay}日`;
+                
                 if (kColumnStr.includes(targetDateStr) || kColumnStr.includes(targetDateStrAlt)) {
                     isDateMatch = true;
                 }
+                
                 // K列に日付+時間の形式で該当日付が含まれるかチェック
                 const kDateMatch = kColumnStr.match(/(\d{1,2})\/(\d{1,2})/);
                 if (kDateMatch) {
@@ -85,15 +101,16 @@ export class ReportGenerator {
                     }
                 }
             }
+            
             // J列条件チェック（1、2、5の場合は除外）
             let isJColumnValid = true;
             const confirmationValue = row.confirmation;
+            
             if (typeof confirmationValue === 'number') {
                 if (confirmationValue === 1 || confirmationValue === 2 || confirmationValue === 5) {
                     isJColumnValid = false;
                 }
-            }
-            else if (typeof confirmationValue === 'string') {
+            } else if (typeof confirmationValue === 'string') {
                 const trimmedValue = confirmationValue.trim();
                 if (trimmedValue !== '') {
                     const confirmationNum = parseInt(trimmedValue);
@@ -102,48 +119,53 @@ export class ReportGenerator {
                     }
                 }
             }
+            
             // K列除外キーワードチェック
             let isKColumnValid = true;
             if (row.confirmationDateTime) {
                 const kColumnStr = String(row.confirmationDateTime);
-                if (kColumnStr.includes('担当待ち') || kColumnStr.includes('直電') ||
-                    kColumnStr.includes('契約時') || kColumnStr.includes('契約') ||
+                if (kColumnStr.includes('担当待ち') || kColumnStr.includes('直電') || 
+                    kColumnStr.includes('契約時') || kColumnStr.includes('契約') || 
                     kColumnStr.includes('待ち')) {
                     isKColumnValid = false;
                 }
             }
+            
             const isValid = isDateMatch && isJColumnValid && isKColumnValid;
+            
             return isValid;
         });
+        
         console.log('日報生成結果:', {
             targetDate: targetDate.toLocaleDateString(),
             totalData: data.length,
             filteredData: dailyData.length,
             filteredOut: data.length - dailyData.length
         });
+        
         const reportData = this.calculateReportData(dailyData, 'daily');
         // 選択された日付情報を追加
         reportData.selectedDate = date;
         return reportData;
     }
-    generateMonthlyReport(data, month) {
+    
+    generateMonthlyReport(data: any[], month: string): any {
         const [year, monthNum] = month.split('-').map(Number);
         const monthlyData = data.filter(row => {
             // 日付チェック
-            if (!row.date)
-                return false;
+            if (!row.date) return false;
             const isDateMatch = row.date.getFullYear() === year && row.date.getMonth() === monthNum - 1;
-            if (!isDateMatch)
-                return false;
+            if (!isDateMatch) return false;
+            
             // J列条件チェック（1、2、5の場合は除外）
             let isJColumnValid = true;
             const confirmationValue = row.confirmation;
+            
             if (typeof confirmationValue === 'number') {
                 if (confirmationValue === 1 || confirmationValue === 2 || confirmationValue === 5) {
                     isJColumnValid = false;
                 }
-            }
-            else if (typeof confirmationValue === 'string') {
+            } else if (typeof confirmationValue === 'string') {
                 const trimmedValue = confirmationValue.trim();
                 if (trimmedValue !== '') {
                     const confirmationNum = parseInt(trimmedValue);
@@ -152,48 +174,62 @@ export class ReportGenerator {
                     }
                 }
             }
+            
             // K列除外キーワードチェック
             let isKColumnValid = true;
             if (row.confirmationDateTime) {
                 const kColumnStr = String(row.confirmationDateTime);
-                if (kColumnStr.includes('担当待ち') || kColumnStr.includes('直電') ||
-                    kColumnStr.includes('契約時') || kColumnStr.includes('契約') ||
+                if (kColumnStr.includes('担当待ち') || kColumnStr.includes('直電') || 
+                    kColumnStr.includes('契約時') || kColumnStr.includes('契約') || 
                     kColumnStr.includes('待ち')) {
                     isKColumnValid = false;
                 }
             }
+            
             return isJColumnValid && isKColumnValid;
         });
+        
         const reportData = this.calculateReportData(monthlyData, 'monthly');
         // 選択された月情報を追加
         reportData.selectedMonth = month;
         reportData.selectedYear = year;
+        
         // 担当者別ランキング集計
+        
         reportData.elderlyStaffRanking = this.calculateElderlyStaffRanking(monthlyData);
         reportData.singleContractRanking = this.calculateSingleContractRanking(monthlyData);
         reportData.excessiveSalesRanking = this.calculateExcessiveSalesRanking(monthlyData);
         reportData.normalAgeStaffRanking = this.calculateNormalAgeStaffRanking(monthlyData);
+        
+
+        
         return reportData;
     }
+    
     // 時間外カウント取得（AB列とK列を独立してカウント）
-    getOvertimeCount(row, targetDate) {
-        if (!targetDate)
-            return 0;
+    private getOvertimeCount(row: any, targetDate?: Date | null): number {
+        if (!targetDate) return 0;
+        
         const targetMonth = targetDate.getMonth();
         const targetDay = targetDate.getDate();
+        
         // 8/20のデータのみ詳細ログを出力
-        const isTarget820 = row.date && row.date instanceof Date &&
-            row.date.getMonth() === 7 && row.date.getDate() === 20;
+        const isTarget820 = row.date && row.date instanceof Date && 
+                           row.date.getMonth() === 7 && row.date.getDate() === 20;
+        
         let contractorOvertimeCount = 0; // ①のカウント
-        let confirmerOvertimeCount = 0; // ②のカウント
+        let confirmerOvertimeCount = 0;  // ②のカウント
+        
         // ①A列が対象日付であり、B列が18:30以降であるものをカウント
         if (row.date && row.date instanceof Date) {
             const aDateMonth = row.date.getMonth();
             const aDateDay = row.date.getDate();
+            
             if (aDateMonth === targetMonth && aDateDay === targetDay) {
                 // B列の時間チェック
                 if (row.time !== null && row.time !== undefined) {
                     let hours = 0, minutes = 0, totalMinutes = 0;
+                    
                     // 数値形式（Excel時間）の場合
                     if (typeof row.time === 'number') {
                         hours = Math.floor(row.time * 24);
@@ -209,6 +245,7 @@ export class ReportGenerator {
                             totalMinutes = hours * 60 + minutes;
                         }
                     }
+                    
                     if (isTarget820) {
                         console.log('8/20データの時間チェック:', {
                             contractor: row.contractor,
@@ -219,6 +256,7 @@ export class ReportGenerator {
                             isOvertime: totalMinutes >= 18 * 60 + 30
                         });
                     }
+                    
                     if (totalMinutes >= 18 * 60 + 30) { // 18:30以降
                         contractorOvertimeCount = 1;
                         console.log('時間外検出（A列+B列）:', {
@@ -232,9 +270,11 @@ export class ReportGenerator {
                 }
             }
         }
+        
         // ②K列の文字列を日付と時間と個人名に分解して、日付が対象日付であり、時間が18:30以降であるものをカウント
         if (row.confirmationDateTime && typeof row.confirmationDateTime === 'string') {
             const kColumnStr = String(row.confirmationDateTime);
+            
             if (isTarget820) {
                 console.log('8/20データのK列チェック:', {
                     contractor: row.contractor,
@@ -243,6 +283,7 @@ export class ReportGenerator {
                     includesColon: kColumnStr.includes(':')
                 });
             }
+            
             // ③K列が「同時」の場合は、AB列でカウント済なのでカウント無し
             if (kColumnStr === '同時') {
                 // confirmerOvertimeCount = 0; // 明示的に0のまま
@@ -253,6 +294,7 @@ export class ReportGenerator {
                 const timeMatch = kColumnStr.match(/(\d{1,2})\/(\d{1,2})\s*(\d{1,2})[：:]\s*(\d{1,2})/);
                 if (timeMatch) {
                     const [_, month, day, hour, minute] = timeMatch;
+                    
                     // 日付が対象日付と一致するかチェック
                     const kMonth = parseInt(month);
                     const kDay = parseInt(day);
@@ -261,6 +303,7 @@ export class ReportGenerator {
                         const kHour = parseInt(hour);
                         const kMinute = parseInt(minute);
                         const kTotalMinutes = kHour * 60 + kMinute;
+                        
                         if (kTotalMinutes >= 18 * 60 + 30) {
                             confirmerOvertimeCount = 1;
                             console.log('時間外検出（K列）:', {
@@ -278,14 +321,17 @@ export class ReportGenerator {
                     if (kColumnData.length >= 2) {
                         const dateStr = kColumnData[0]; // 例: 8/20
                         const timeStr = kColumnData[1]; // 例: 19:37
+                        
                         if (dateStr.includes('/')) {
                             const [month, day] = dateStr.split('/').map(Number);
+                            
                             // 日付が対象日付と一致するかチェック
                             if (month === targetMonth + 1 && day === targetDay) {
                                 // 時間が18:30以降かチェック
                                 if (timeStr.includes(':')) {
                                     const [hours, minutes] = timeStr.split(':').map(Number);
                                     const totalMinutes = hours * 60 + minutes;
+                                    
                                     if (totalMinutes >= 18 * 60 + 30) {
                                         confirmerOvertimeCount = 1;
                                         console.log('時間外検出（K列スペース区切り）:', {
@@ -303,8 +349,10 @@ export class ReportGenerator {
                 }
             }
         }
+        
         // ①＋②が時間外件数となる（独立してカウント）
         const totalCount = contractorOvertimeCount + confirmerOvertimeCount;
+        
         if (isTarget820) {
             console.log('8/20データの最終判定:', {
                 contractor: row.contractor,
@@ -315,6 +363,7 @@ export class ReportGenerator {
                 totalCount: totalCount
             });
         }
+        
         if (totalCount > 0) {
             console.log('時間外として判定:', {
                 contractor: row.contractor,
@@ -326,22 +375,28 @@ export class ReportGenerator {
                 totalCount: totalCount
             });
         }
+        
         return totalCount;
     }
+    
     // 後方互換性のための isOvertime メソッド（boolean返却）
-    isOvertime(row, targetDate) {
+    private isOvertime(row: any, targetDate?: Date | null): boolean {
         return this.getOvertimeCount(row, targetDate) > 0;
     }
-    calculateReportData(data, type) {
+    
+    private calculateReportData(data: any[], type: string): any {
         // 基本統計
         const totalOrders = data.length;
         const overtimeOrders = data.reduce((total, row) => {
             return total + this.getOvertimeCount(row, type === 'daily' ? this.currentTargetDate : null);
         }, 0);
+        
         // 地区別集計
         const regionStats = this.calculateRegionStats(data);
+        
         // 高齢者・通常年齢の集計
         const ageStats = this.calculateAgeStats(data);
+        
         return {
             type,
             totalOrders,
@@ -351,14 +406,23 @@ export class ReportGenerator {
             rawData: data
         };
     }
-    calculateRegionStats(data) {
-        const regions = {
+    
+    private calculateRegionStats(data: any[]): any {
+        const regions: { [key: string]: { 
+            orders: number; 
+            overtime: number;
+            excessive: number;
+            single: number;
+            holidayConstruction: number;
+            prohibitedConstruction: number;
+        } } = {
             '九州地区': { orders: 0, overtime: 0, excessive: 0, single: 0, holidayConstruction: 0, prohibitedConstruction: 0 },
             '中四国地区': { orders: 0, overtime: 0, excessive: 0, single: 0, holidayConstruction: 0, prohibitedConstruction: 0 },
             '関西地区': { orders: 0, overtime: 0, excessive: 0, single: 0, holidayConstruction: 0, prohibitedConstruction: 0 },
             '関東地区': { orders: 0, overtime: 0, excessive: 0, single: 0, holidayConstruction: 0, prohibitedConstruction: 0 },
             'その他': { orders: 0, overtime: 0, excessive: 0, single: 0, holidayConstruction: 0, prohibitedConstruction: 0 }
         };
+        
         data.forEach(row => {
             const region = row.region;
             if (regions[region]) {
@@ -381,9 +445,11 @@ export class ReportGenerator {
                 }
             }
         });
+        
         return regions;
     }
-    calculateAgeStats(data) {
+    
+    private calculateAgeStats(data: any[]): any {
         const stats = {
             elderly: {
                 total: 0,
@@ -395,73 +461,83 @@ export class ReportGenerator {
                 excessive: 0
             }
         };
+        
         data.forEach(row => {
             if (row.isElderly) {
                 stats.elderly.total++;
-                if (row.isExcessive)
-                    stats.elderly.excessive++;
-                if (row.isSingle)
-                    stats.elderly.single++;
-            }
-            else {
+                if (row.isExcessive) stats.elderly.excessive++;
+                if (row.isSingle) stats.elderly.single++;
+            } else {
                 stats.normal.total++;
-                if (row.isExcessive)
-                    stats.normal.excessive++;
+                if (row.isExcessive) stats.normal.excessive++;
             }
         });
+        
         return stats;
     }
-    isSameDate(date1, date2) {
+    
+    private isSameDate(date1: Date, date2: Date): boolean {
         return date1.getFullYear() === date2.getFullYear() &&
-            date1.getMonth() === date2.getMonth() &&
-            date1.getDate() === date2.getDate();
+               date1.getMonth() === date2.getMonth() &&
+               date1.getDate() === date2.getDate();
     }
+    
     // 総過量販売件数を取得
-    getTotalExcessive(regionStats) {
-        return Object.values(regionStats).reduce((total, stats) => {
+    private getTotalExcessive(regionStats: any): number {
+        return Object.values(regionStats).reduce((total: number, stats: any) => {
             return total + (stats.excessive || 0);
         }, 0);
     }
+    
     // 総単独契約件数を取得
-    getTotalSingle(regionStats) {
-        return Object.values(regionStats).reduce((total, stats) => {
+    private getTotalSingle(regionStats: any): number {
+        return Object.values(regionStats).reduce((total: number, stats: any) => {
             return total + (stats.single || 0);
         }, 0);
     }
+    
     // 総公休日施工件数を取得
-    getTotalHolidayConstruction(regionStats) {
-        return Object.values(regionStats).reduce((total, stats) => {
+    private getTotalHolidayConstruction(regionStats: any): number {
+        return Object.values(regionStats).reduce((total: number, stats: any) => {
             return total + (stats.holidayConstruction || 0);
         }, 0);
     }
+    
     // 総禁止日施工件数を取得
-    getTotalProhibitedConstruction(regionStats) {
-        return Object.values(regionStats).reduce((total, stats) => {
+    private getTotalProhibitedConstruction(regionStats: any): number {
+        return Object.values(regionStats).reduce((total: number, stats: any) => {
             return total + (stats.prohibitedConstruction || 0);
         }, 0);
     }
+
     // 受注判定メソッド（日付指定版）
-    isOrderForDate(row, targetDate) {
+    private isOrderForDate(row: any, targetDate: Date): boolean {
         // 基本的な条件チェック
         if (!row.staffName || row.staffName.trim() === '') {
             return false;
         }
+        
         // 日付が存在するかチェック
         if (!row.date) {
             return false;
         }
+        
         // 簡素化された受注判定（一時的）
         return true;
     }
+
     // 担当者別ランキング集計メソッド
+
     // 契約者70歳以上の受注件数トップ10ランキング
-    calculateElderlyStaffRanking(data) {
+    private calculateElderlyStaffRanking(data: any[]): any[] {
         console.log('calculateElderlyStaffRanking 開始 - データ件数:', data.length);
-        const staffCounts = new Map();
+        const staffCounts = new Map<string, { regionNo: string; departmentNo: string; staffName: string; count: number }>();
+        
         data.forEach((row, index) => {
             // 動的にisOrderを計算
             const isOrder = this.isOrderForDate(row, new Date());
             const age = row.contractorAge || row.age;
+            
             if (index < 10) {
                 console.log(`高齢者 行${index}:`, {
                     staffName: row.staffName,
@@ -470,14 +546,14 @@ export class ReportGenerator {
                     isElderly: age && age >= 70
                 });
             }
+            
             // 条件: 70歳以上 AND 受注 AND 担当者名が存在
             if (age && age >= 70 && isOrder && row.staffName && row.staffName.trim() !== '') {
                 const key = `${row.departmentNumber}_${row.staffName}`;
                 const existing = staffCounts.get(key);
                 if (existing) {
                     existing.count++;
-                }
-                else {
+                } else {
                     staffCounts.set(key, {
                         regionNo: row.regionNumber || '',
                         departmentNo: row.departmentNumber || '',
@@ -487,18 +563,23 @@ export class ReportGenerator {
                 }
             }
         });
+        
         // 件数降順でソート
         const sorted = Array.from(staffCounts.values()).sort((a, b) => b.count - a.count);
+        
         // トップ10を取得（同件数は同順位、次の順位は飛ばす）
         return this.assignRanks(sorted).slice(0, 10);
     }
+
     // 単独契約ランキング
-    calculateSingleContractRanking(data) {
+    private calculateSingleContractRanking(data: any[]): any[] {
         console.log('calculateSingleContractRanking 開始 - データ件数:', data.length);
-        const staffCounts = new Map();
+        const staffCounts = new Map<string, { regionNo: string; departmentNo: string; staffName: string; count: number }>();
+        
         data.forEach((row, index) => {
             // 動的にisOrderを計算
             const isOrder = this.isOrderForDate(row, new Date());
+            
             if (index < 10) {
                 console.log(`単独契約 行${index}:`, {
                     staffName: row.staffName,
@@ -506,14 +587,14 @@ export class ReportGenerator {
                     isOrder: isOrder
                 });
             }
+            
             // 条件: 単独契約 AND 受注 AND 担当者名が存在
             if (row.isSingle && isOrder && row.staffName && row.staffName.trim() !== '') {
                 const key = `${row.departmentNumber}_${row.staffName}`;
                 const existing = staffCounts.get(key);
                 if (existing) {
                     existing.count++;
-                }
-                else {
+                } else {
                     staffCounts.set(key, {
                         regionNo: row.regionNumber || '',
                         departmentNo: row.departmentNumber || '',
@@ -523,19 +604,24 @@ export class ReportGenerator {
                 }
             }
         });
+        
         // 件数降順でソート
         const sorted = Array.from(staffCounts.values()).sort((a, b) => b.count - a.count);
+        
         // 1件以上のみ
         const filtered = sorted.filter(item => item.count >= 1);
         return this.assignRanks(filtered);
     }
+
     // 過量販売ランキング
-    calculateExcessiveSalesRanking(data) {
+    private calculateExcessiveSalesRanking(data: any[]): any[] {
         console.log('calculateExcessiveSalesRanking 開始 - データ件数:', data.length);
-        const staffCounts = new Map();
+        const staffCounts = new Map<string, { regionNo: string; departmentNo: string; staffName: string; count: number }>();
+        
         data.forEach((row, index) => {
             // 動的にisOrderを計算
             const isOrder = this.isOrderForDate(row, new Date());
+            
             if (index < 10) {
                 console.log(`過量販売 行${index}:`, {
                     staffName: row.staffName,
@@ -543,14 +629,14 @@ export class ReportGenerator {
                     isOrder: isOrder
                 });
             }
+            
             // 条件: 過量販売 AND 受注 AND 担当者名が存在
             if (row.isExcessive && isOrder && row.staffName && row.staffName.trim() !== '') {
                 const key = `${row.departmentNumber}_${row.staffName}`;
                 const existing = staffCounts.get(key);
                 if (existing) {
                     existing.count++;
-                }
-                else {
+                } else {
                     staffCounts.set(key, {
                         regionNo: row.regionNumber || '',
                         departmentNo: row.departmentNumber || '',
@@ -560,21 +646,26 @@ export class ReportGenerator {
                 }
             }
         });
+        
         // 件数降順でソート
         const sorted = Array.from(staffCounts.values()).sort((a, b) => b.count - a.count);
+        
         // 1件以上のみ
         const filtered = sorted.filter(item => item.count >= 1);
         return this.assignRanks(filtered);
     }
+
     // 69歳以下契約件数の担当別件数
-    calculateNormalAgeStaffRanking(data) {
+    private calculateNormalAgeStaffRanking(data: any[]): any[] {
         console.log('calculateNormalAgeStaffRanking 開始 - データ件数:', data.length);
-        const staffCounts = new Map();
+        const staffCounts = new Map<string, { regionNo: string; departmentNo: string; staffName: string; count: number }>();
+        
         data.forEach((row, index) => {
             // 動的にisOrderを計算
             const isOrder = this.isOrderForDate(row, new Date());
             const age = row.contractorAge || row.age;
             const isNormalAge = !age || age < 70;
+            
             if (index < 10) {
                 console.log(`69歳以下 行${index}:`, {
                     staffName: row.staffName,
@@ -583,14 +674,14 @@ export class ReportGenerator {
                     isOrder: isOrder
                 });
             }
+            
             // 条件: 69歳以下 AND 受注 AND 担当者名が存在
             if (isNormalAge && isOrder && row.staffName && row.staffName.trim() !== '') {
                 const key = `${row.departmentNumber}_${row.staffName}`;
                 const existing = staffCounts.get(key);
                 if (existing) {
                     existing.count++;
-                }
-                else {
+                } else {
                     staffCounts.set(key, {
                         regionNo: row.regionNumber || '',
                         departmentNo: row.departmentNumber || '',
@@ -600,23 +691,28 @@ export class ReportGenerator {
                 }
             }
         });
+        
         // 件数降順でソート
         const sorted = Array.from(staffCounts.values()).sort((a, b) => b.count - a.count);
+        
         // 全担当者（0件含む）
         return this.assignRanks(sorted);
     }
+
     // ランキング順位を割り当て（同件数は同順位、次の順位は飛ばす）
-    assignRanks(sorted) {
-        if (sorted.length === 0)
-            return [];
+    private assignRanks(sorted: any[]): any[] {
+        if (sorted.length === 0) return [];
+        
         const result = [];
         let currentRank = 1;
         let currentCount = sorted[0].count;
+        
         for (let i = 0; i < sorted.length; i++) {
             if (sorted[i].count < currentCount) {
                 currentRank = i + 1;
                 currentCount = sorted[i].count;
             }
+            
             result.push({
                 rank: currentRank,
                 regionNo: sorted[i].regionNo,
@@ -625,12 +721,15 @@ export class ReportGenerator {
                 count: sorted[i].count
             });
         }
+        
         return result;
     }
-    createDailyReportHTML(report) {
+    
+    createDailyReportHTML(report: any): string {
         // 選択された日付から日付テキストを取得
         const selectedDate = report.selectedDate ? new Date(report.selectedDate) : new Date();
         const dateText = selectedDate.toLocaleDateString('ja-JP');
+        
         return `
             <div class="report-section fade-in">
                 <h3 class="report-title">
@@ -647,7 +746,7 @@ export class ReportGenerator {
                                 <div class="total-stat-label">受注件数</div>
                             </div>
                             <div class="total-stat-item">
-                                <div class="total-stat-number">${report.overtimeOrders}</div>
+                                <div class="stat-number">${report.overtimeOrders}</div>
                                 <div class="total-stat-label">時間外対応</div>
                             </div>
                             <div class="total-stat-item">
@@ -681,6 +780,37 @@ export class ReportGenerator {
                     <h5 class="mb-3"><i class="fas fa-users me-2"></i>年齢別集計</h5>
                     ${this.createAgeStatsHTML(report.ageStats)}
                 </div>
+
+                <!-- 担当者別ランキング -->
+                ${report.elderlyStaffRanking ? `
+                <div class="mb-4">
+                    <h5 class="mb-3"><i class="fas fa-trophy me-2"></i>担当者別ランキング</h5>
+                    
+                    <!-- ①契約者70歳以上の受注件数トップ10ランキング -->
+                    <div class="ranking-section mb-4">
+                        <h6 class="ranking-title">①契約者70歳以上の受注件数トップ10ランキング</h6>
+                        ${this.createRankingTableHTML(report.elderlyStaffRanking)}
+                    </div>
+
+                    <!-- ②単独契約ランキング -->
+                    <div class="ranking-section mb-4">
+                        <h6 class="ranking-title">②単独契約ランキング</h6>
+                        ${this.createRankingTableHTML(report.singleContractRanking)}
+                    </div>
+
+                    <!-- ③過量販売ランキング -->
+                    <div class="ranking-section mb-4">
+                        <h6 class="ranking-title">③過量販売ランキング</h6>
+                        ${this.createRankingTableHTML(report.excessiveSalesRanking)}
+                    </div>
+
+                    <!-- ④69歳以下契約件数の担当別件数 -->
+                    <div class="ranking-section mb-4">
+                        <h6 class="ranking-title">④69歳以下契約件数の担当別件数</h6>
+                        ${this.createRankingTableHTML(report.normalAgeStaffRanking)}
+                    </div>
+                </div>
+                ` : ''}
                 
                 <!-- エクスポートボタン -->
                 <div class="text-center">
@@ -694,10 +824,12 @@ export class ReportGenerator {
             </div>
         `;
     }
-    createMonthlyReportHTML(report) {
+    
+    createMonthlyReportHTML(report: any): string {
         // 選択された月から年月を取得
         const selectedDate = report.selectedMonth ? new Date(report.selectedMonth + '-01') : new Date();
         const monthText = selectedDate.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' });
+        
         return `
             <div class="report-section fade-in">
                 <h3 class="report-title">
@@ -756,54 +888,26 @@ export class ReportGenerator {
                     
                     <!-- ①契約者70歳以上の受注件数トップ10ランキング -->
                     <div class="ranking-section mb-4">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="ranking-title mb-0">①契約者70歳以上の受注件数トップ10ランキング</h6>
-                            <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#elderlyRankingCollapse" aria-expanded="false" aria-controls="elderlyRankingCollapse">
-                                <i class="fas fa-eye me-1"></i>表示/非表示
-                            </button>
-                        </div>
-                        <div class="collapse" id="elderlyRankingCollapse">
-                            ${this.createRankingTableHTML(report.elderlyStaffRanking)}
-                        </div>
+                        <h6 class="ranking-title">①契約者70歳以上の受注件数トップ10ランキング</h6>
+                        ${this.createRankingTableHTML(report.elderlyStaffRanking)}
                     </div>
 
-                    <!-- ②単独契約を持っている担当者一覧 -->
+                    <!-- ②単独契約ランキング -->
                     <div class="ranking-section mb-4">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="ranking-title mb-0">②単独契約を持っている担当者一覧</h6>
-                            <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#singleContractRankingCollapse" aria-expanded="false" aria-controls="singleContractRankingCollapse">
-                                <i class="fas fa-eye me-1"></i>表示/非表示
-                            </button>
-                        </div>
-                        <div class="collapse" id="singleContractRankingCollapse">
-                            ${this.createRankingTableHTML(report.singleContractRanking)}
-                        </div>
+                        <h6 class="ranking-title">②単独契約ランキング</h6>
+                        ${this.createRankingTableHTML(report.singleContractRanking)}
                     </div>
 
-                    <!-- ③過量契約を持っている担当者一覧 -->
+                    <!-- ③過量販売ランキング -->
                     <div class="ranking-section mb-4">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="ranking-title mb-0">③過量契約を持っている担当者一覧</h6>
-                            <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#excessiveSalesRankingCollapse" aria-expanded="false" aria-controls="excessiveSalesRankingCollapse">
-                                <i class="fas fa-eye me-1"></i>表示/非表示
-                            </button>
-                        </div>
-                        <div class="collapse" id="excessiveSalesRankingCollapse">
-                            ${this.createRankingTableHTML(report.excessiveSalesRanking)}
-                        </div>
+                        <h6 class="ranking-title">③過量販売ランキング</h6>
+                        ${this.createRankingTableHTML(report.excessiveSalesRanking)}
                     </div>
 
                     <!-- ④69歳以下契約件数の担当別件数 -->
                     <div class="ranking-section mb-4">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="ranking-title mb-0">④69歳以下契約件数の担当別件数</h6>
-                            <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#normalAgeRankingCollapse" aria-expanded="false" aria-controls="normalAgeRankingCollapse">
-                                <i class="fas fa-eye me-1"></i>表示/非表示
-                            </button>
-                        </div>
-                        <div class="collapse" id="normalAgeRankingCollapse">
-                            ${this.createRankingTableHTML(report.normalAgeStaffRanking)}
-                        </div>
+                        <h6 class="ranking-title">④69歳以下契約件数の担当別件数</h6>
+                        ${this.createRankingTableHTML(report.normalAgeStaffRanking)}
                     </div>
                 </div>
                 ` : ''}
@@ -820,9 +924,11 @@ export class ReportGenerator {
             </div>
         `;
     }
-    createRegionStatsHTML(regionStats) {
+    
+    private createRegionStatsHTML(regionStats: any): string {
         let html = '<div class="row">';
-        Object.entries(regionStats).forEach(([region, stats]) => {
+        
+        Object.entries(regionStats).forEach(([region, stats]: [string, any]) => {
             if (stats.orders > 0) {
                 html += `
                     <div class="col-md-6 mb-3">
@@ -859,10 +965,12 @@ export class ReportGenerator {
                 `;
             }
         });
+        
         html += '</div>';
         return html;
     }
-    createAgeStatsHTML(ageStats) {
+    
+    private createAgeStatsHTML(ageStats: any): string {
         return `
             <div class="row">
                 <div class="col-md-6 mb-3">
@@ -902,69 +1010,81 @@ export class ReportGenerator {
             </div>
         `;
     }
-    async exportToPDF(report, type) {
+    
+    async exportToPDF(report: any, type: string): Promise<void> {
         try {
             // PDF用のHTML要素を動的に作成
             const pdfContainer = this.createPDFHTML(report, type);
             document.body.appendChild(pdfContainer);
+            
             // html2canvasでHTML要素を画像に変換
-            const canvas = await window.html2canvas(pdfContainer, {
+            const canvas = await (window as any).html2canvas(pdfContainer, {
                 scale: 3, // より高画質化
                 useCORS: true,
                 allowTaint: true,
                 backgroundColor: '#ffffff',
                 logging: false
             });
+            
             // jsPDFでPDF作成
-            const { jsPDF } = window.jspdf;
+            const { jsPDF } = (window as any).jspdf;
             const pdf = new jsPDF({
                 orientation: 'portrait',
                 unit: 'mm',
                 format: 'a4'
             });
+            
             // A4サイズの寸法（mm）
             const pageWidth = pdf.internal.pageSize.getWidth(); // 210mm
             const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm
+            
             // 画像のアスペクト比を計算
             const imgWidth = canvas.width;
             const imgHeight = canvas.height;
             const imgAspectRatio = imgWidth / imgHeight;
+            
             // 余白を設定（上下左右10mm）
             const margin = 10;
             const availableWidth = pageWidth - (margin * 2);
             const availableHeight = pageHeight - (margin * 2);
+            
             // 利用可能エリアに合わせてサイズを計算
             let finalWidth, finalHeight;
             if (availableWidth / availableHeight > imgAspectRatio) {
                 // 高さ基準でスケール
                 finalHeight = availableHeight;
                 finalWidth = finalHeight * imgAspectRatio;
-            }
-            else {
+            } else {
                 // 幅基準でスケール
                 finalWidth = availableWidth;
                 finalHeight = finalWidth / imgAspectRatio;
             }
+            
             // 中央配置のための座標計算
             const x = (pageWidth - finalWidth) / 2;
             const y = (pageHeight - finalHeight) / 2;
+            
             // 画像をPDFに追加（中央配置・最大サイズ）
             const imgData = canvas.toDataURL('image/png');
             pdf.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight);
+            
             // 一時的なHTML要素を削除
             document.body.removeChild(pdfContainer);
+            
             // PDFをダウンロード
             const fileName = `${type === 'daily' ? '日報' : '月報'}_${new Date().toISOString().split('T')[0]}.pdf`;
             pdf.save(fileName);
-        }
-        catch (error) {
+            
+        } catch (error) {
             console.error('PDF出力エラー:', error);
             alert('PDFの出力に失敗しました。');
         }
     }
-    createPDFHTML(report, type) {
+    
+    private createPDFHTML(report: any, type: string): HTMLElement {
         const container = document.createElement('div');
         container.className = 'pdf-container';
+        
         // 日付の取得
         const selectedDate = report.selectedDate ? new Date(report.selectedDate) : new Date();
         const dateText = selectedDate.toLocaleDateString('ja-JP', {
@@ -972,6 +1092,7 @@ export class ReportGenerator {
             month: 'long',
             day: 'numeric'
         });
+        
         container.innerHTML = `
             <div class="pdf-header">
                 <div class="pdf-title">${type === 'daily' ? '日報' : '月報'}</div>
@@ -1014,8 +1135,8 @@ export class ReportGenerator {
                 <div class="pdf-section-title">地区別受注件数</div>
                 <div class="pdf-region-grid">
                     ${Object.entries(report.regionStats)
-            .filter(([_, stats]) => stats.orders > 0)
-            .map(([region, stats]) => `
+                        .filter(([_, stats]: [string, any]) => stats.orders > 0)
+                        .map(([region, stats]: [string, any]) => `
                             <div class="pdf-region-card">
                                 <div class="pdf-region-name">${region}</div>
                                 <div class="pdf-region-stats">
@@ -1068,8 +1189,8 @@ export class ReportGenerator {
                             <div class="pdf-ranking-cell">担当名</div>
                             <div class="pdf-ranking-cell">件数</div>
                         </div>
-                        ${report.elderlyStaffRanking && report.elderlyStaffRanking.length > 0 ?
-            report.elderlyStaffRanking.map((staff) => `
+                        ${report.elderlyStaffRanking && report.elderlyStaffRanking.length > 0 ? 
+                            report.elderlyStaffRanking.map((staff: any) => `
                                 <div class="pdf-ranking-row">
                                     <div class="pdf-ranking-cell">${staff.rank}</div>
                                     <div class="pdf-ranking-cell">${staff.regionNo}</div>
@@ -1077,8 +1198,9 @@ export class ReportGenerator {
                                     <div class="pdf-ranking-cell">${staff.staffName}</div>
                                     <div class="pdf-ranking-cell">${staff.count}</div>
                                 </div>
-                            `).join('') :
-            '<div class="pdf-ranking-row"><div class="pdf-ranking-cell" colspan="5">データがありません</div></div>'}
+                            `).join('') : 
+                            '<div class="pdf-ranking-row"><div class="pdf-ranking-cell" colspan="5">データがありません</div></div>'
+                        }
                     </div>
                 </div>
 
@@ -1093,8 +1215,8 @@ export class ReportGenerator {
                             <div class="pdf-ranking-cell">担当名</div>
                             <div class="pdf-ranking-cell">件数</div>
                         </div>
-                        ${report.singleContractRanking && report.singleContractRanking.length > 0 ?
-            report.singleContractRanking.map((staff) => `
+                        ${report.singleContractRanking && report.singleContractRanking.length > 0 ? 
+                            report.singleContractRanking.map((staff: any) => `
                                 <div class="pdf-ranking-row">
                                     <div class="pdf-ranking-cell">${staff.rank}</div>
                                     <div class="pdf-ranking-cell">${staff.regionNo}</div>
@@ -1102,8 +1224,9 @@ export class ReportGenerator {
                                     <div class="pdf-ranking-cell">${staff.staffName}</div>
                                     <div class="pdf-ranking-cell">${staff.count}</div>
                                 </div>
-                            `).join('') :
-            '<div class="pdf-ranking-row"><div class="pdf-ranking-cell" colspan="5">データがありません</div></div>'}
+                            `).join('') : 
+                            '<div class="pdf-ranking-row"><div class="pdf-ranking-cell" colspan="5">データがありません</div></div>'
+                        }
                     </div>
                 </div>
 
@@ -1118,8 +1241,8 @@ export class ReportGenerator {
                             <div class="pdf-ranking-cell">担当名</div>
                             <div class="pdf-ranking-cell">件数</div>
                         </div>
-                        ${report.excessiveSalesRanking && report.excessiveSalesRanking.length > 0 ?
-            report.excessiveSalesRanking.map((staff) => `
+                        ${report.excessiveSalesRanking && report.excessiveSalesRanking.length > 0 ? 
+                            report.excessiveSalesRanking.map((staff: any) => `
                                 <div class="pdf-ranking-row">
                                     <div class="pdf-ranking-cell">${staff.rank}</div>
                                     <div class="pdf-ranking-cell">${staff.regionNo}</div>
@@ -1127,96 +1250,107 @@ export class ReportGenerator {
                                     <div class="pdf-ranking-cell">${staff.staffName}</div>
                                     <div class="pdf-ranking-cell">${staff.count}</div>
                                 </div>
-                            `).join('') :
-            '<div class="pdf-ranking-row"><div class="pdf-ranking-cell" colspan="5">データがありません</div></div>'}
+                            `).join('') : 
+                            '<div class="pdf-ranking-row"><div class="pdf-ranking-cell" colspan="5">データがありません</div></div>'
+                        }
                     </div>
                 </div>
             </div>
         `;
+        
         return container;
     }
-    async exportToCSV(report, type) {
+    
+    async exportToCSV(report: any, type: string): Promise<void> {
         try {
             if (type === 'monthly' && report.elderlyStaffRanking) {
                 // 月報の場合は担当者別ランキングを個別CSV化
                 await this.exportStaffRankingCSVs(report);
                 return;
             }
+
             // 日報の場合は従来通りのCSV出力
             const csvData = [
                 // ヘッダー行
                 ['項目', '受注件数', '時間外対応', '過量販売', '単独契約', '公休日施工', '禁止日施工'],
                 // 総件数行
-                ['総件数', report.totalOrders.toString(), report.overtimeOrders.toString(),
-                    this.getTotalExcessive(report.regionStats).toString(),
-                    this.getTotalSingle(report.regionStats).toString(),
-                    this.getTotalHolidayConstruction(report.regionStats).toString(),
-                    this.getTotalProhibitedConstruction(report.regionStats).toString()],
+                ['総件数', report.totalOrders.toString(), report.overtimeOrders.toString(), 
+                 this.getTotalExcessive(report.regionStats).toString(), 
+                 this.getTotalSingle(report.regionStats).toString(),
+                 this.getTotalHolidayConstruction(report.regionStats).toString(),
+                 this.getTotalProhibitedConstruction(report.regionStats).toString()],
                 [''],
                 // 地区別受注件数ヘッダー
                 ['地区別受注件数', '受注件数', '時間外対応', '過量販売', '単独契約', '公休日施工', '禁止日施工'],
                 // 各地区のデータ
                 ...Object.entries(report.regionStats)
-                    .filter(([_, stats]) => stats.orders > 0)
-                    .map(([region, stats]) => [
-                    region,
-                    stats.orders.toString(),
-                    stats.overtime.toString(),
-                    stats.excessive.toString(),
-                    stats.single.toString(),
-                    stats.holidayConstruction.toString(),
-                    stats.prohibitedConstruction.toString()
-                ]),
+                    .filter(([_, stats]: [string, any]) => stats.orders > 0)
+                    .map(([region, stats]: [string, any]) => [
+                        region, 
+                        stats.orders.toString(), 
+                        stats.overtime.toString(), 
+                        stats.excessive.toString(), 
+                        stats.single.toString(),
+                        stats.holidayConstruction.toString(),
+                        stats.prohibitedConstruction.toString()
+                    ]),
                 [''],
                 // 年齢別集計ヘッダー
                 ['年齢別集計', '総件数', '過量販売', '単独契約', '', '', ''],
                 // 高齢者データ
-                ['高齢者（70歳以上）', report.ageStats.elderly.total.toString(),
-                    report.ageStats.elderly.excessive.toString(),
-                    report.ageStats.elderly.single.toString(), '', '', ''],
+                ['高齢者（70歳以上）', report.ageStats.elderly.total.toString(), 
+                 report.ageStats.elderly.excessive.toString(), 
+                 report.ageStats.elderly.single.toString(), '', '', ''],
                 // 通常年齢データ
-                ['通常年齢（69歳以下）', report.ageStats.normal.total.toString(),
-                    report.ageStats.normal.excessive.toString(), '', '', '', '']
+                ['通常年齢（69歳以下）', report.ageStats.normal.total.toString(), 
+                 report.ageStats.normal.excessive.toString(), '', '', '', '']
             ];
+            
             // CSV文字列の作成（強化されたUTF-8エンコーディング）
-            const csvContent = csvData.map(row => row.map(cell => {
-                // セル内容をエスケープして文字化けを防止
-                const escapedCell = String(cell).replace(/"/g, '""');
-                return `"${escapedCell}"`;
-            }).join(',')).join('\r\n'); // Windows互換の改行コード
+            const csvContent = csvData.map(row => 
+                row.map(cell => {
+                    // セル内容をエスケープして文字化けを防止
+                    const escapedCell = String(cell).replace(/"/g, '""');
+                    return `"${escapedCell}"`;
+                }).join(',')
+            ).join('\r\n'); // Windows互換の改行コード
+            
             // BOM付きUTF-8でBlobを作成（Excel対応）
             const bom = '\uFEFF';
-            const blob = new Blob([bom + csvContent], {
-                type: 'text/csv;charset=utf-8;'
+            const blob = new Blob([bom + csvContent], { 
+                type: 'text/csv;charset=utf-8;' 
             });
+            
             const fileName = `${type === 'daily' ? '日報' : '月報'}_${new Date().toISOString().split('T')[0]}.csv`;
-            if (window.saveAs) {
-                window.saveAs(blob, fileName);
-            }
-            else {
+            
+            if ((window as any).saveAs) {
+                (window as any).saveAs(blob, fileName);
+            } else {
                 // フォールバック
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
                 link.download = fileName;
                 link.click();
             }
-        }
-        catch (error) {
+            
+        } catch (error) {
             console.error('CSV出力エラー:', error);
             alert('CSVの出力に失敗しました。');
         }
     }
+
     // 担当者別ランキングCSV出力（個別ファイル）
-    async exportStaffRankingCSVs(report) {
+    private async exportStaffRankingCSVs(report: any): Promise<void> {
         try {
             const monthText = `${report.selectedYear}年${report.selectedMonth}月`;
+            
             // ①契約者70歳以上の受注件数トップ10ランキング
             if (report.elderlyStaffRanking && report.elderlyStaffRanking.length > 0) {
                 const elderlyData = [
                     ['①契約者70歳以上の受注件数トップ10ランキング'],
                     [''],
                     ['ランキング', '地区No.', '所属No.', '担当名', '件数'],
-                    ...report.elderlyStaffRanking.map((staff) => [
+                    ...report.elderlyStaffRanking.map((staff: any) => [
                         staff.rank.toString(),
                         staff.regionNo,
                         staff.departmentNo,
@@ -1226,13 +1360,14 @@ export class ReportGenerator {
                 ];
                 await this.downloadCSV(elderlyData, `①70歳以上受注件数ランキング_${monthText}.csv`);
             }
+
             // ②単独契約ランキング
             if (report.singleContractRanking && report.singleContractRanking.length > 0) {
                 const singleData = [
                     ['②単独契約ランキング'],
                     [''],
                     ['ランキング', '地区No.', '所属No.', '担当名', '件数'],
-                    ...report.singleContractRanking.map((staff) => [
+                    ...report.singleContractRanking.map((staff: any) => [
                         staff.rank.toString(),
                         staff.regionNo,
                         staff.departmentNo,
@@ -1242,13 +1377,14 @@ export class ReportGenerator {
                 ];
                 await this.downloadCSV(singleData, `②単独契約ランキング_${monthText}.csv`);
             }
+
             // ③過量販売ランキング
             if (report.excessiveSalesRanking && report.excessiveSalesRanking.length > 0) {
                 const excessiveData = [
                     ['③過量販売ランキング'],
                     [''],
                     ['ランキング', '地区No.', '所属No.', '担当名', '件数'],
-                    ...report.excessiveSalesRanking.map((staff) => [
+                    ...report.excessiveSalesRanking.map((staff: any) => [
                         staff.rank.toString(),
                         staff.regionNo,
                         staff.departmentNo,
@@ -1258,13 +1394,14 @@ export class ReportGenerator {
                 ];
                 await this.downloadCSV(excessiveData, `③過量販売ランキング_${monthText}.csv`);
             }
+
             // ④69歳以下契約件数の担当別件数
             if (report.normalAgeStaffRanking && report.normalAgeStaffRanking.length > 0) {
                 const normalData = [
                     ['④69歳以下契約件数の担当別件数'],
                     [''],
                     ['ランキング', '地区No.', '所属No.', '担当名', '件数'],
-                    ...report.normalAgeStaffRanking.map((staff) => [
+                    ...report.normalAgeStaffRanking.map((staff: any) => [
                         staff.rank.toString(),
                         staff.regionNo,
                         staff.departmentNo,
@@ -1274,35 +1411,41 @@ export class ReportGenerator {
                 ];
                 await this.downloadCSV(normalData, `④69歳以下契約件数担当別_${monthText}.csv`);
             }
-        }
-        catch (error) {
+
+        } catch (error) {
             console.error('担当者別ランキングCSV出力エラー:', error);
         }
     }
+
     // CSVダウンロード用ヘルパーメソッド
-    async downloadCSV(data, fileName) {
-        const csvContent = data.map(row => row.map(cell => {
-            const escapedCell = String(cell).replace(/"/g, '""');
-            return `"${escapedCell}"`;
-        }).join(',')).join('\r\n');
+    private async downloadCSV(data: any[][], fileName: string): Promise<void> {
+        const csvContent = data.map(row => 
+            row.map(cell => {
+                const escapedCell = String(cell).replace(/"/g, '""');
+                return `"${escapedCell}"`;
+            }).join(',')
+        ).join('\r\n');
+
         const bom = '\uFEFF';
-        const blob = new Blob([bom + csvContent], {
-            type: 'text/csv;charset=utf-8;'
+        const blob = new Blob([bom + csvContent], { 
+            type: 'text/csv;charset=utf-8;' 
         });
-        if (window.saveAs) {
-            window.saveAs(blob, fileName);
-        }
-        else {
+
+        if ((window as any).saveAs) {
+            (window as any).saveAs(blob, fileName);
+        } else {
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             link.download = fileName;
             link.click();
         }
     }
-    createRankingTableHTML(ranking) {
+
+    private createRankingTableHTML(ranking: any[]): string {
         if (!ranking || ranking.length === 0) {
             return '<div class="text-center text-muted py-3">データがありません</div>';
         }
+
         return `
             <div class="table-responsive">
                 <table class="table table-striped table-hover">
@@ -1316,7 +1459,7 @@ export class ReportGenerator {
                         </tr>
                     </thead>
                     <tbody>
-                        ${ranking.map((staff) => `
+                        ${ranking.map((staff: any) => `
                             <tr>
                                 <td><strong>${staff.rank}</strong></td>
                                 <td>${staff.regionNo}</td>
@@ -1330,29 +1473,36 @@ export class ReportGenerator {
             </div>
         `;
     }
+
     // 担当別データを生成
-    generateStaffData(data) {
+    public generateStaffData(data: any[]): StaffData[] {
         console.log('generateStaffData開始, データ件数:', data.length);
-        const staffMap = new Map();
+        const staffMap = new Map<string, StaffData>();
+        
         // データの詳細を確認
         let orderCount = 0;
         let staffNameCount = 0;
         let validStaffCount = 0;
+        
         data.forEach((row, index) => {
             // 動的にisOrderを計算
             const isOrder = this.isOrderForDate(row, new Date());
             row.isOrder = isOrder; // 結果を保存
+            
             // 受注件数のカウント
             if (isOrder) {
                 orderCount++;
             }
+            
             // 担当者名がある件数のカウント
             if (row.staffName && row.staffName.trim() !== '') {
                 staffNameCount++;
             }
+            
             // 受注かつ担当者名がある件数のカウント
             if (isOrder && row.staffName && row.staffName.trim() !== '') {
                 validStaffCount++;
+                
                 if (index < 5) { // 最初の5件のデータをログ出力
                     console.log(`有効な行${index}:`, {
                         isOrder: row.isOrder,
@@ -1365,7 +1515,9 @@ export class ReportGenerator {
                         isOvertime: row.isOvertime
                     });
                 }
+                
                 const key = `${row.regionNumber || ''}-${row.departmentNumber || ''}-${row.staffName}`;
+                
                 if (!staffMap.has(key)) {
                     staffMap.set(key, {
                         regionNo: row.regionNumber || '',
@@ -1379,42 +1531,46 @@ export class ReportGenerator {
                         overtimeOrders: 0
                     });
                 }
-                const staff = staffMap.get(key);
+                
+                const staff = staffMap.get(key)!;
                 staff.totalOrders++;
+                
                 // 年齢による分類（contractorAgeを使用）
                 const age = row.contractorAge || row.age;
                 if (age && age >= 70) {
                     staff.elderlyOrders++;
-                }
-                else {
+                } else {
                     staff.normalAgeOrders++;
                 }
+                
                 // その他の分類
-                if (row.isSingle)
-                    staff.singleOrders++;
-                if (row.isExcessive)
-                    staff.excessiveOrders++;
-                if (row.isOvertime)
-                    staff.overtimeOrders++;
+                if (row.isSingle) staff.singleOrders++;
+                if (row.isExcessive) staff.excessiveOrders++;
+                if (row.isOvertime) staff.overtimeOrders++;
             }
         });
+        
         console.log('データ分析結果:', {
             totalRows: data.length,
             orderRows: orderCount,
             staffNameRows: staffNameCount,
             validStaffRows: validStaffCount
         });
+        
         console.log('担当者別集計完了, 担当者数:', staffMap.size);
+        
         // 件数降順でソート
         const result = Array.from(staffMap.values()).sort((a, b) => b.totalOrders - a.totalOrders);
         console.log('担当別データ結果(最初の3件):', result.slice(0, 3));
         return result;
     }
+
     // 担当別データのHTMLを生成
-    createStaffDataHTML(staffData) {
+    public createStaffDataHTML(staffData: StaffData[]): string {
         if (!staffData || staffData.length === 0) {
             return '<div class="alert alert-info">データがありません</div>';
         }
+
         const tableRows = staffData.map(staff => `
             <tr>
                 <td>${staff.regionNo || ''}</td>
@@ -1428,6 +1584,7 @@ export class ReportGenerator {
                 <td>${staff.overtimeOrders}</td>
             </tr>
         `).join('');
+
         return `
             <div class="table-responsive">
                 <table class="table table-striped table-hover">
@@ -1451,12 +1608,15 @@ export class ReportGenerator {
             </div>
         `;
     }
+
     // 確認データのHTMLを生成
-    createDataConfirmationHTML(data) {
+    public createDataConfirmationHTML(data: any[]): string {
         if (!data || data.length === 0) {
             return '<div class="alert alert-info">データがありません</div>';
         }
-        const tableRows = data.map((row, index) => `
+
+        const sampleData = data.slice(0, 10); // 最初の10件を表示
+        const tableRows = sampleData.map((row, index) => `
             <tr>
                 <td>${index + 1}</td>
                 <td>${row.date ? row.date.toLocaleDateString() : 'N/A'}</td>
@@ -1469,30 +1629,14 @@ export class ReportGenerator {
                 <td>${row.confirmationDateTime || ''}</td>
             </tr>
         `).join('');
+
         return `
             <div class="alert alert-success">
                 <h5>データ確認完了</h5>
                 <p>総データ件数: <strong>${data.length}</strong>件</p>
             </div>
-            
-            <!-- フィルター機能 -->
-            <div class="row mb-3">
-                <div class="col-md-4">
-                    <label for="staffFilter" class="form-label">担当者名でフィルター</label>
-                    <input type="text" class="form-control" id="staffFilter" placeholder="担当者名を入力...">
-                </div>
-                <div class="col-md-4">
-                    <label for="regionFilter" class="form-label">地区№でフィルター</label>
-                    <input type="text" class="form-control" id="regionFilter" placeholder="地区№を入力...">
-                </div>
-                <div class="col-md-4">
-                    <label for="departmentFilter" class="form-label">所属№でフィルター</label>
-                    <input type="text" class="form-control" id="departmentFilter" placeholder="所属№を入力...">
-                </div>
-            </div>
-            
             <div class="table-responsive">
-                <table class="table table-striped table-hover" id="dataConfirmationTable">
+                <table class="table table-striped table-hover">
                     <thead class="table-dark">
                         <tr>
                             <th>#</th>
@@ -1511,11 +1655,9 @@ export class ReportGenerator {
                     </tbody>
                 </table>
             </div>
-            
             <div class="alert alert-info">
-                <small>※ 全件表示中（${data.length}件）</small>
+                <small>※ 最初の10件のみ表示しています</small>
             </div>
         `;
     }
 }
-//# sourceMappingURL=report-generator.js.map

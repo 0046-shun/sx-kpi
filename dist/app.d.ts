@@ -17,6 +17,8 @@ export declare class App {
     private generateMonthlyReport;
     private displayReport;
     private updateStaffData;
+    private updateDataConfirmation;
+    private setupDataFilters;
     private setupExportButtons;
     private showMessage;
     private setDefaultDate;

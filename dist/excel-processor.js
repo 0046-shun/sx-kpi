@@ -58,9 +58,10 @@ export class ExcelProcessor {
         // データ行をオブジェクトに変換
         const processedData = dataRows.map((row, index) => {
             const rowNumber = index + 10; // 実際の行番号
+            const parsedDate = this.parseDate(row[0]); // A列：日付
             return {
                 rowNumber,
-                date: this.parseDate(row[0]), // A列：日付
+                date: parsedDate,
                 time: this.parseTime(row[1]), // B列：時間
                 regionNumber: row[2], // C列：地区№
                 departmentNumber: row[3], // D列：所属№
@@ -93,7 +94,7 @@ export class ExcelProcessor {
                 total: row[30], // AE列：計
                 // 計算フィールド（日付に依存しないもののみ事前計算）
                 // isOrder: 動的に計算（ReportGeneratorで実行）
-                // isOvertime: 動的に計算（ReportGeneratorで実行）
+                isOvertime: this.isOvertime(parsedDate, row[1], row[10], row[11], row[6]), // 時間外判定
                 isElderly: this.isElderly(row[6]), // 高齢者判定
                 isExcessive: this.isExcessive(row[10]), // 過量販売判定
                 isSingle: this.isSingle(row[10]), // 単独契約判定
@@ -263,32 +264,28 @@ export class ExcelProcessor {
         return true;
     }
     isSingle(confirmation) {
-        // 一時的に簡素化：基本的なデータチェックのみ
-        console.log('isSingle判定開始（簡素化版）:', { confirmation });
-        // 基本的なデータ存在チェック
         if (!confirmation) {
-            console.log('確認データが存在しないため除外');
             return false;
         }
-        console.log('isSingle判定結果: true（簡素化版）');
-        return true;
+        const confirmationStr = String(confirmation).toLowerCase();
+        const result = confirmationStr.includes('単独');
+        console.log('isSingle判定:', { confirmation, confirmationStr, result });
+        return result;
     }
     isExcessive(confirmation) {
-        // 一時的に簡素化：基本的なデータチェックのみ
-        console.log('isExcessive判定開始（簡素化版）:', { confirmation });
-        // 基本的なデータ存在チェック
         if (!confirmation) {
-            console.log('確認データが存在しないため除外');
             return false;
         }
-        console.log('isExcessive判定結果: true（簡素化版）');
-        return true;
+        const confirmationStr = String(confirmation).toLowerCase();
+        const result = confirmationStr.includes('過量');
+        console.log('isExcessive判定:', { confirmation, confirmationStr, result });
+        return result;
     }
     isOvertime(date, time, confirmation, confirmationDateTime, age, targetDate) {
-        // 一時的に簡素化：基本的なデータチェックのみ
-        console.log('isOvertime判定開始（簡素化版）:', {
+        console.log('isOvertime判定開始:', {
             date: date instanceof Date ? date.toLocaleDateString() : date,
             time: time,
+            confirmation: confirmation,
             confirmationDateTime: confirmationDateTime
         });
         // 基本的なデータ存在チェック
@@ -296,8 +293,51 @@ export class ExcelProcessor {
             console.log('日付が存在しないため除外');
             return false;
         }
-        console.log('isOvertime判定結果: true（簡素化版）');
-        return true;
+        // 時間外判定の優先順位（カウント条件.mdに基づく）
+        let checkTime = null;
+        // 1. K列が「同時」の場合：A列+B列の日付時間を使用
+        if (confirmation && String(confirmation).toLowerCase() === '同時') {
+            if (date instanceof Date && time) {
+                const timeStr = String(time);
+                const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})/);
+                if (timeMatch) {
+                    checkTime = new Date(date);
+                    checkTime.setHours(parseInt(timeMatch[1]), parseInt(timeMatch[2]), 0, 0);
+                }
+            }
+        }
+        // 2. K列に日付+時間が含まれる場合：K列の時間を使用
+        else if (confirmation) {
+            const confirmationStr = String(confirmation);
+            const timeMatch = confirmationStr.match(/(\d{1,2})[：:]\s*(\d{2})/);
+            if (timeMatch) {
+                checkTime = new Date();
+                checkTime.setHours(parseInt(timeMatch[1]), parseInt(timeMatch[2]), 0, 0);
+            }
+        }
+        // 3. K列に時間情報がない場合：A列+B列の時間を使用
+        if (!checkTime && date instanceof Date && time) {
+            const timeStr = String(time);
+            const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})/);
+            if (timeMatch) {
+                checkTime = new Date(date);
+                checkTime.setHours(parseInt(timeMatch[1]), parseInt(timeMatch[2]), 0, 0);
+            }
+        }
+        // 18:30以降かチェック
+        if (checkTime) {
+            const overtimeThreshold = new Date(checkTime);
+            overtimeThreshold.setHours(18, 30, 0, 0);
+            const result = checkTime >= overtimeThreshold;
+            console.log('isOvertime判定結果:', {
+                checkTime: checkTime.toLocaleTimeString(),
+                threshold: '18:30',
+                result: result
+            });
+            return result;
+        }
+        console.log('isOvertime判定結果: false（時間情報なし）');
+        return false;
     }
     isElderly(age) {
         const parsedAge = this.parseAge(age);

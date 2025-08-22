@@ -746,7 +746,7 @@ export class ReportGenerator {
                                 <div class="total-stat-label">受注件数</div>
                             </div>
                             <div class="total-stat-item">
-                                <div class="stat-number">${report.overtimeOrders}</div>
+                                <div class="total-stat-number">${report.overtimeOrders}</div>
                                 <div class="total-stat-label">時間外対応</div>
                             </div>
                             <div class="total-stat-item">
@@ -780,37 +780,6 @@ export class ReportGenerator {
                     <h5 class="mb-3"><i class="fas fa-users me-2"></i>年齢別集計</h5>
                     ${this.createAgeStatsHTML(report.ageStats)}
                 </div>
-
-                <!-- 担当者別ランキング -->
-                ${report.elderlyStaffRanking ? `
-                <div class="mb-4">
-                    <h5 class="mb-3"><i class="fas fa-trophy me-2"></i>担当者別ランキング</h5>
-                    
-                    <!-- ①契約者70歳以上の受注件数トップ10ランキング -->
-                    <div class="ranking-section mb-4">
-                        <h6 class="ranking-title">①契約者70歳以上の受注件数トップ10ランキング</h6>
-                        ${this.createRankingTableHTML(report.elderlyStaffRanking)}
-                    </div>
-
-                    <!-- ②単独契約ランキング -->
-                    <div class="ranking-section mb-4">
-                        <h6 class="ranking-title">②単独契約ランキング</h6>
-                        ${this.createRankingTableHTML(report.singleContractRanking)}
-                    </div>
-
-                    <!-- ③過量販売ランキング -->
-                    <div class="ranking-section mb-4">
-                        <h6 class="ranking-title">③過量販売ランキング</h6>
-                        ${this.createRankingTableHTML(report.excessiveSalesRanking)}
-                    </div>
-
-                    <!-- ④69歳以下契約件数の担当別件数 -->
-                    <div class="ranking-section mb-4">
-                        <h6 class="ranking-title">④69歳以下契約件数の担当別件数</h6>
-                        ${this.createRankingTableHTML(report.normalAgeStaffRanking)}
-                    </div>
-                </div>
-                ` : ''}
                 
                 <!-- エクスポートボタン -->
                 <div class="text-center">
@@ -888,26 +857,54 @@ export class ReportGenerator {
                     
                     <!-- ①契約者70歳以上の受注件数トップ10ランキング -->
                     <div class="ranking-section mb-4">
-                        <h6 class="ranking-title">①契約者70歳以上の受注件数トップ10ランキング</h6>
-                        ${this.createRankingTableHTML(report.elderlyStaffRanking)}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="ranking-title mb-0">①契約者70歳以上の受注件数トップ10ランキング</h6>
+                            <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#elderlyRankingCollapse" aria-expanded="false" aria-controls="elderlyRankingCollapse">
+                                <i class="fas fa-eye me-1"></i>表示/非表示
+                            </button>
+                        </div>
+                        <div class="collapse" id="elderlyRankingCollapse">
+                            ${this.createRankingTableHTML(report.elderlyStaffRanking)}
+                        </div>
                     </div>
 
-                    <!-- ②単独契約ランキング -->
+                    <!-- ②単独契約を持っている担当者一覧 -->
                     <div class="ranking-section mb-4">
-                        <h6 class="ranking-title">②単独契約ランキング</h6>
-                        ${this.createRankingTableHTML(report.singleContractRanking)}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="ranking-title mb-0">②単独契約を持っている担当者一覧</h6>
+                            <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#singleContractRankingCollapse" aria-expanded="false" aria-controls="singleContractRankingCollapse">
+                                <i class="fas fa-eye me-1"></i>表示/非表示
+                            </button>
+                        </div>
+                        <div class="collapse" id="singleContractRankingCollapse">
+                            ${this.createRankingTableHTML(report.singleContractRanking)}
+                        </div>
                     </div>
 
-                    <!-- ③過量販売ランキング -->
+                    <!-- ③過量契約を持っている担当者一覧 -->
                     <div class="ranking-section mb-4">
-                        <h6 class="ranking-title">③過量販売ランキング</h6>
-                        ${this.createRankingTableHTML(report.excessiveSalesRanking)}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="ranking-title mb-0">③過量契約を持っている担当者一覧</h6>
+                            <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#excessiveSalesRankingCollapse" aria-expanded="false" aria-controls="excessiveSalesRankingCollapse">
+                                <i class="fas fa-eye me-1"></i>表示/非表示
+                            </button>
+                        </div>
+                        <div class="collapse" id="excessiveSalesRankingCollapse">
+                            ${this.createRankingTableHTML(report.excessiveSalesRanking)}
+                        </div>
                     </div>
 
                     <!-- ④69歳以下契約件数の担当別件数 -->
                     <div class="ranking-section mb-4">
-                        <h6 class="ranking-title">④69歳以下契約件数の担当別件数</h6>
-                        ${this.createRankingTableHTML(report.normalAgeStaffRanking)}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="ranking-title mb-0">④69歳以下契約件数の担当別件数</h6>
+                            <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#normalAgeRankingCollapse" aria-expanded="false" aria-controls="normalAgeRankingCollapse">
+                                <i class="fas fa-eye me-1"></i>表示/非表示
+                            </button>
+                        </div>
+                        <div class="collapse" id="normalAgeRankingCollapse">
+                            ${this.createRankingTableHTML(report.normalAgeStaffRanking)}
+                        </div>
                     </div>
                 </div>
                 ` : ''}
@@ -1568,8 +1565,22 @@ export class ReportGenerator {
     // 担当別データのHTMLを生成
     public createStaffDataHTML(staffData: StaffData[]): string {
         if (!staffData || staffData.length === 0) {
-            return '<div class="text-center text-muted py-3">データがありません</div>';
+            return '<div class="alert alert-info">データがありません</div>';
         }
+
+        const tableRows = staffData.map(staff => `
+            <tr>
+                <td>${staff.regionNo || ''}</td>
+                <td>${staff.departmentNo || ''}</td>
+                <td>${staff.staffName}</td>
+                <td>${staff.totalOrders}</td>
+                <td>${staff.normalAgeOrders}</td>
+                <td>${staff.elderlyOrders}</td>
+                <td>${staff.singleOrders}</td>
+                <td>${staff.excessiveOrders}</td>
+                <td>${staff.overtimeOrders}</td>
+            </tr>
+        `).join('');
 
         return `
             <div class="table-responsive">
@@ -1580,7 +1591,7 @@ export class ReportGenerator {
                             <th>所属</th>
                             <th>担当名</th>
                             <th>受注件数</th>
-                            <th>69歳以下件数</th>
+                            <th>契約者69歳以下件数</th>
                             <th>70歳以上件数</th>
                             <th>単独件数</th>
                             <th>過量件数</th>
@@ -1588,21 +1599,78 @@ export class ReportGenerator {
                         </tr>
                     </thead>
                     <tbody>
-                        ${staffData.map(staff => `
-                            <tr>
-                                <td>${staff.regionNo}</td>
-                                <td>${staff.departmentNo}</td>
-                                <td><strong>${staff.staffName}</strong></td>
-                                <td><span class="badge bg-primary">${staff.totalOrders}</span></td>
-                                <td><span class="badge bg-success">${staff.normalAgeOrders}</span></td>
-                                <td><span class="badge bg-warning">${staff.elderlyOrders}</span></td>
-                                <td><span class="badge bg-info">${staff.singleOrders}</span></td>
-                                <td><span class="badge bg-danger">${staff.excessiveOrders}</span></td>
-                                <td><span class="badge bg-secondary">${staff.overtimeOrders}</span></td>
-                            </tr>
-                        `).join('')}
+                        ${tableRows}
                     </tbody>
                 </table>
+            </div>
+        `;
+    }
+
+    // 確認データのHTMLを生成
+    public createDataConfirmationHTML(data: any[]): string {
+        if (!data || data.length === 0) {
+            return '<div class="alert alert-info">データがありません</div>';
+        }
+
+        const tableRows = data.map((row, index) => `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${row.date ? row.date.toLocaleDateString() : 'N/A'}</td>
+                <td>${row.staffName || ''}</td>
+                <td>${row.regionNumber || ''}</td>
+                <td>${row.departmentNumber || ''}</td>
+                <td>${row.contractor || ''}</td>
+                <td>${row.contractorAge || ''}</td>
+                <td>${row.confirmation || ''}</td>
+                <td>${row.confirmationDateTime || ''}</td>
+            </tr>
+        `).join('');
+
+        return `
+            <div class="alert alert-success">
+                <h5>データ確認完了</h5>
+                <p>総データ件数: <strong>${data.length}</strong>件</p>
+            </div>
+            
+            <!-- フィルター機能 -->
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label for="staffFilter" class="form-label">担当者名でフィルター</label>
+                    <input type="text" class="form-control" id="staffFilter" placeholder="担当者名を入力...">
+                </div>
+                <div class="col-md-4">
+                    <label for="regionFilter" class="form-label">地区№でフィルター</label>
+                    <input type="text" class="form-control" id="regionFilter" placeholder="地区№を入力...">
+                </div>
+                <div class="col-md-4">
+                    <label for="departmentFilter" class="form-label">所属№でフィルター</label>
+                    <input type="text" class="form-control" id="departmentFilter" placeholder="所属№を入力...">
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-striped table-hover" id="dataConfirmationTable">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>#</th>
+                            <th>日付</th>
+                            <th>担当者名</th>
+                            <th>地区№</th>
+                            <th>所属№</th>
+                            <th>契約者</th>
+                            <th>年齢</th>
+                            <th>確認</th>
+                            <th>確認者日時</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tableRows}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="alert alert-info">
+                <small>※ 全件表示中（${data.length}件）</small>
             </div>
         `;
     }

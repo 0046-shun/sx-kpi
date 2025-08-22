@@ -647,7 +647,7 @@ export class ReportGenerator {
                                 <div class="total-stat-label">受注件数</div>
                             </div>
                             <div class="total-stat-item">
-                                <div class="total-stat-number">${report.overtimeOrders}</div>
+                                <div class="stat-number">${report.overtimeOrders}</div>
                                 <div class="total-stat-label">時間外対応</div>
                             </div>
                             <div class="total-stat-item">
@@ -681,6 +681,37 @@ export class ReportGenerator {
                     <h5 class="mb-3"><i class="fas fa-users me-2"></i>年齢別集計</h5>
                     ${this.createAgeStatsHTML(report.ageStats)}
                 </div>
+
+                <!-- 担当者別ランキング -->
+                ${report.elderlyStaffRanking ? `
+                <div class="mb-4">
+                    <h5 class="mb-3"><i class="fas fa-trophy me-2"></i>担当者別ランキング</h5>
+                    
+                    <!-- ①契約者70歳以上の受注件数トップ10ランキング -->
+                    <div class="ranking-section mb-4">
+                        <h6 class="ranking-title">①契約者70歳以上の受注件数トップ10ランキング</h6>
+                        ${this.createRankingTableHTML(report.elderlyStaffRanking)}
+                    </div>
+
+                    <!-- ②単独契約ランキング -->
+                    <div class="ranking-section mb-4">
+                        <h6 class="ranking-title">②単独契約ランキング</h6>
+                        ${this.createRankingTableHTML(report.singleContractRanking)}
+                    </div>
+
+                    <!-- ③過量販売ランキング -->
+                    <div class="ranking-section mb-4">
+                        <h6 class="ranking-title">③過量販売ランキング</h6>
+                        ${this.createRankingTableHTML(report.excessiveSalesRanking)}
+                    </div>
+
+                    <!-- ④69歳以下契約件数の担当別件数 -->
+                    <div class="ranking-section mb-4">
+                        <h6 class="ranking-title">④69歳以下契約件数の担当別件数</h6>
+                        ${this.createRankingTableHTML(report.normalAgeStaffRanking)}
+                    </div>
+                </div>
+                ` : ''}
                 
                 <!-- エクスポートボタン -->
                 <div class="text-center">
@@ -756,54 +787,26 @@ export class ReportGenerator {
                     
                     <!-- ①契約者70歳以上の受注件数トップ10ランキング -->
                     <div class="ranking-section mb-4">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="ranking-title mb-0">①契約者70歳以上の受注件数トップ10ランキング</h6>
-                            <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#elderlyRankingCollapse" aria-expanded="false" aria-controls="elderlyRankingCollapse">
-                                <i class="fas fa-eye me-1"></i>表示/非表示
-                            </button>
-                        </div>
-                        <div class="collapse" id="elderlyRankingCollapse">
-                            ${this.createRankingTableHTML(report.elderlyStaffRanking)}
-                        </div>
+                        <h6 class="ranking-title">①契約者70歳以上の受注件数トップ10ランキング</h6>
+                        ${this.createRankingTableHTML(report.elderlyStaffRanking)}
                     </div>
 
-                    <!-- ②単独契約を持っている担当者一覧 -->
+                    <!-- ②単独契約ランキング -->
                     <div class="ranking-section mb-4">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="ranking-title mb-0">②単独契約を持っている担当者一覧</h6>
-                            <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#singleContractRankingCollapse" aria-expanded="false" aria-controls="singleContractRankingCollapse">
-                                <i class="fas fa-eye me-1"></i>表示/非表示
-                            </button>
-                        </div>
-                        <div class="collapse" id="singleContractRankingCollapse">
-                            ${this.createRankingTableHTML(report.singleContractRanking)}
-                        </div>
+                        <h6 class="ranking-title">②単独契約ランキング</h6>
+                        ${this.createRankingTableHTML(report.singleContractRanking)}
                     </div>
 
-                    <!-- ③過量契約を持っている担当者一覧 -->
+                    <!-- ③過量販売ランキング -->
                     <div class="ranking-section mb-4">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="ranking-title mb-0">③過量契約を持っている担当者一覧</h6>
-                            <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#excessiveSalesRankingCollapse" aria-expanded="false" aria-controls="excessiveSalesRankingCollapse">
-                                <i class="fas fa-eye me-1"></i>表示/非表示
-                            </button>
-                        </div>
-                        <div class="collapse" id="excessiveSalesRankingCollapse">
-                            ${this.createRankingTableHTML(report.excessiveSalesRanking)}
-                        </div>
+                        <h6 class="ranking-title">③過量販売ランキング</h6>
+                        ${this.createRankingTableHTML(report.excessiveSalesRanking)}
                     </div>
 
                     <!-- ④69歳以下契約件数の担当別件数 -->
                     <div class="ranking-section mb-4">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="ranking-title mb-0">④69歳以下契約件数の担当別件数</h6>
-                            <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#normalAgeRankingCollapse" aria-expanded="false" aria-controls="normalAgeRankingCollapse">
-                                <i class="fas fa-eye me-1"></i>表示/非表示
-                            </button>
-                        </div>
-                        <div class="collapse" id="normalAgeRankingCollapse">
-                            ${this.createRankingTableHTML(report.normalAgeStaffRanking)}
-                        </div>
+                        <h6 class="ranking-title">④69歳以下契約件数の担当別件数</h6>
+                        ${this.createRankingTableHTML(report.normalAgeStaffRanking)}
                     </div>
                 </div>
                 ` : ''}
@@ -1456,7 +1459,8 @@ export class ReportGenerator {
         if (!data || data.length === 0) {
             return '<div class="alert alert-info">データがありません</div>';
         }
-        const tableRows = data.map((row, index) => `
+        const sampleData = data.slice(0, 10); // 最初の10件を表示
+        const tableRows = sampleData.map((row, index) => `
             <tr>
                 <td>${index + 1}</td>
                 <td>${row.date ? row.date.toLocaleDateString() : 'N/A'}</td>
@@ -1474,25 +1478,8 @@ export class ReportGenerator {
                 <h5>データ確認完了</h5>
                 <p>総データ件数: <strong>${data.length}</strong>件</p>
             </div>
-            
-            <!-- フィルター機能 -->
-            <div class="row mb-3">
-                <div class="col-md-4">
-                    <label for="staffFilter" class="form-label">担当者名でフィルター</label>
-                    <input type="text" class="form-control" id="staffFilter" placeholder="担当者名を入力...">
-                </div>
-                <div class="col-md-4">
-                    <label for="regionFilter" class="form-label">地区№でフィルター</label>
-                    <input type="text" class="form-control" id="regionFilter" placeholder="地区№を入力...">
-                </div>
-                <div class="col-md-4">
-                    <label for="departmentFilter" class="form-label">所属№でフィルター</label>
-                    <input type="text" class="form-control" id="departmentFilter" placeholder="所属№を入力...">
-                </div>
-            </div>
-            
             <div class="table-responsive">
-                <table class="table table-striped table-hover" id="dataConfirmationTable">
+                <table class="table table-striped table-hover">
                     <thead class="table-dark">
                         <tr>
                             <th>#</th>
@@ -1511,11 +1498,10 @@ export class ReportGenerator {
                     </tbody>
                 </table>
             </div>
-            
             <div class="alert alert-info">
-                <small>※ 全件表示中（${data.length}件）</small>
+                <small>※ 最初の10件のみ表示しています</small>
             </div>
         `;
     }
 }
-//# sourceMappingURL=report-generator.js.map
+//# sourceMappingURL=report-generator-backup.js.map

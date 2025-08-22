@@ -132,17 +132,20 @@ export class App {
     async handleFileUpload(file) {
         try {
             console.log('ファイルアップロード開始:', file.name);
+            // スタートメッセージを表示
+            this.showMessage(`ファイル「${file.name}」の読み込みを開始しました...`, 'info');
             // Excelファイルを読み込み
             const data = await this.excelProcessor.readExcelFile(file);
             // データを保存
             this.dataManager.setData(data);
             // 現在のデータを保存
             this.currentData = data;
-            // 担当別データを即座に更新
+            // 担当別データと確認データを即座に更新
             this.updateStaffData();
+            this.updateDataConfirmation();
             console.log('ファイル処理完了:', data.length, '件');
-            // 成功メッセージを表示
-            this.showMessage('ファイルの読み込みが完了しました。', 'success');
+            // 完了メッセージを表示
+            this.showMessage(`ファイル「${file.name}」の読み込みが完了しました。総データ件数: ${data.length}件`, 'success');
         }
         catch (error) {
             console.error('ファイル処理エラー:', error);
@@ -234,6 +237,71 @@ export class App {
             console.log('データがないため担当別データを更新できません');
         }
     }
+    // 確認データを更新
+    updateDataConfirmation() {
+        console.log('確認データ更新開始, currentDataの件数:', this.currentData?.length || 0);
+        if (this.currentData && this.currentData.length > 0) {
+            const dataContainer = document.getElementById('dataConfirmationContent');
+            if (dataContainer) {
+                dataContainer.innerHTML = this.reportGenerator.createDataConfirmationHTML(this.currentData);
+                console.log('確認データHTMLを更新しました');
+                // フィルター機能を設定
+                this.setupDataFilters();
+            }
+            else {
+                console.error('dataConfirmationContent要素が見つかりません');
+            }
+        }
+        else {
+            console.log('データがないため確認データを更新できません');
+        }
+    }
+    // データフィルター機能を設定
+    setupDataFilters() {
+        const staffFilter = document.getElementById('staffFilter');
+        const regionFilter = document.getElementById('regionFilter');
+        const departmentFilter = document.getElementById('departmentFilter');
+        const table = document.getElementById('dataConfirmationTable');
+        if (!table)
+            return;
+        const filterData = () => {
+            const staffValue = staffFilter?.value.toLowerCase() || '';
+            const regionValue = regionFilter?.value.toLowerCase() || '';
+            const departmentValue = departmentFilter?.value.toLowerCase() || '';
+            const rows = table.querySelectorAll('tbody tr');
+            let visibleCount = 0;
+            rows.forEach((row) => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length >= 5) {
+                    const staffName = cells[2]?.textContent?.toLowerCase() || '';
+                    const regionNo = cells[3]?.textContent?.toLowerCase() || '';
+                    const departmentNo = cells[4]?.textContent?.toLowerCase() || '';
+                    const matchesStaff = !staffValue || staffName.includes(staffValue);
+                    const matchesRegion = !regionValue || regionNo.includes(regionValue);
+                    const matchesDepartment = !departmentValue || departmentNo.includes(departmentValue);
+                    if (matchesStaff && matchesRegion && matchesDepartment) {
+                        row.style.display = '';
+                        visibleCount++;
+                    }
+                    else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+            // 表示件数を更新
+            const infoAlert = table.parentElement?.nextElementSibling;
+            if (infoAlert && infoAlert.classList.contains('alert-info')) {
+                infoAlert.innerHTML = `<small>※ フィルター適用中（表示件数: ${visibleCount}件 / 総件数: ${this.currentData.length}件）</small>`;
+            }
+        };
+        // フィルター入力時のイベントリスナーを設定
+        if (staffFilter)
+            staffFilter.addEventListener('input', filterData);
+        if (regionFilter)
+            regionFilter.addEventListener('input', filterData);
+        if (departmentFilter)
+            departmentFilter.addEventListener('input', filterData);
+    }
     // エクスポートボタンの設定
     setupExportButtons(type, report) {
         const containerSelector = type === 'daily' ? '#dailyReportContent' : '#monthlyReportContent';
@@ -259,27 +327,37 @@ export class App {
     }
     // メッセージ表示
     showMessage(message, type) {
+        console.log('showMessage呼び出し:', { message, type });
         // 既存のメッセージを削除
-        const existingMessage = document.querySelector('.alert');
-        if (existingMessage) {
-            existingMessage.remove();
-        }
+        const existingMessages = document.querySelectorAll('.alert-message');
+        existingMessages.forEach(msg => msg.remove());
         // 新しいメッセージを作成
         const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show`;
+        alertDiv.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show alert-message`;
+        alertDiv.style.position = 'fixed';
+        alertDiv.style.top = '20px';
+        alertDiv.style.right = '20px';
+        alertDiv.style.zIndex = '9999';
+        alertDiv.style.minWidth = '300px';
         alertDiv.innerHTML = `
             ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         `;
-        // メッセージを表示
-        const mainContent = document.querySelector('.main-content');
-        if (mainContent) {
-            mainContent.insertBefore(alertDiv, mainContent.firstChild);
+        // メッセージをbodyに追加
+        document.body.appendChild(alertDiv);
+        console.log('メッセージを表示しました:', alertDiv);
+        // 閉じるボタンのイベントリスナー
+        const closeButton = alertDiv.querySelector('.btn-close');
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                alertDiv.remove();
+            });
         }
         // 3秒後に自動で消す
         setTimeout(() => {
             if (alertDiv.parentNode) {
                 alertDiv.remove();
+                console.log('メッセージを自動削除しました');
             }
         }, 3000);
     }
