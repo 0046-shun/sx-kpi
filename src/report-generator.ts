@@ -225,10 +225,20 @@ export class ReportGenerator {
     
     // 時間外カウント取得（AB列とK列を独立してカウント）
     private getOvertimeCount(row: any, targetDate?: Date | null): number {
-        if (!targetDate) return 0;
+        // 月報の場合は、行の日付を使用
+        let effectiveTargetDate: Date;
+        if (!targetDate) {
+            if (row.date && row.date instanceof Date) {
+                effectiveTargetDate = row.date;
+            } else {
+                return 0;
+            }
+        } else {
+            effectiveTargetDate = targetDate;
+        }
         
-        const targetMonth = targetDate.getMonth();
-        const targetDay = targetDate.getDate();
+        const targetMonth = effectiveTargetDate.getMonth();
+        const targetDay = effectiveTargetDate.getDate();
         
         // 8/20のデータのみ詳細ログを出力
         const isTarget820 = row.date && row.date instanceof Date && 
@@ -400,7 +410,7 @@ export class ReportGenerator {
             const region = this.getRegionName(row.regionNumber);
             if (regions[region]) {
                 regions[region].orders++;
-                regions[region].overtime += this.getOvertimeCount(row, this.currentTargetDate);
+                regions[region].overtime += this.getOvertimeCount(row, null);
                 
                 // 動的に判定
                 if (this.excelProcessor.isExcessive(row.confirmationDateTime)) {
