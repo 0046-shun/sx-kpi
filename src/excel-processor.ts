@@ -1,7 +1,8 @@
+import { HolidaySettings, StaffData } from './types.js';
+
 export class ExcelProcessor {
     
     async readExcelFile(file: File): Promise<any[]> {
-        console.log('Excelファイル読み込み開始:', file.name);
         
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -19,9 +20,7 @@ export class ExcelProcessor {
                     const jsonData = (window as any).XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                     
                     // データの検証とクリーニング
-                    console.log('Excelファイル読み込み成功、データ処理開始');
                     const cleanedData = this.cleanAndValidateData(jsonData);
-                    console.log('データ処理完了、件数:', cleanedData.length);
                     
                     resolve(cleanedData);
                     
@@ -40,7 +39,6 @@ export class ExcelProcessor {
     }
     
     private cleanAndValidateData(rawData: any[]): any[] {
-        console.log('データクリーニング開始、総行数:', rawData.length);
         
         if (rawData.length < 10) {
             throw new Error('データが不足しています。最低10行のデータが必要です。');
@@ -48,28 +46,12 @@ export class ExcelProcessor {
         
         // ヘッダー行（1-8行目）と項目行（9行目）をスキップ
         const allDataRows = rawData.slice(9);
-        console.log('全データ行数（ヘッダー除く）:', allDataRows.length);
         
         // 空行を除外（データがある行のみを抽出）
         const dataRows = allDataRows.filter((row, index) => {
             const hasData = row && Array.isArray(row) && row.length > 0 && row[0] !== undefined && row[0] !== null && row[0] !== '';
-            if (!hasData && index < 10) {
-                console.log(`行${index + 10}は空行のためスキップ:`, { row, length: row ? row.length : 0 });
-            }
             return hasData;
         });
-        
-        console.log('有効データ行数（空行除く）:', dataRows.length);
-        
-        // 最初の有効行の詳細構造を確認
-        if (dataRows.length > 0) {
-            console.log('最初の有効行の詳細構造:', {
-                rowLength: dataRows[0].length,
-                rowKeys: Object.keys(dataRows[0]),
-                rowValues: dataRows[0],
-                firstFewValues: dataRows[0].slice(0, 15)
-            });
-        }
         
         // データ行をオブジェクトに変換
         const processedData = dataRows.map((row, index) => {
@@ -82,7 +64,7 @@ export class ExcelProcessor {
                 time: this.parseTime(row[1]), // B列：時間
                 regionNumber: row[2], // C列：地区№
                 departmentNumber: row[3], // D列：所属№
-                staffName: row[4], // E列：担当者名
+                staffName: this.normalizeStaffName(row[4]), // E列：担当者名（正規化）
                 contractor: row[5], // F列：契約者
                 contractorAge: this.parseAge(row[6]), // G列：年齢
                 contractorRelation: row[7], // H列：相手
@@ -100,68 +82,13 @@ export class ExcelProcessor {
                 startDate: this.parseDate(row[19]), // T列：着工日
                 startTime: row[20], // U列：着工時間
                 completionDate: this.parseDate(row[21]), // V列：完工予定日
-                paymentMethod: row[22], // W列：支払方法
-                receptionist: row[23], // X列：受付者
-                coFlyer: row[24], // Y列：COチラシ
-                designEstimateNumber: row[25], // Z列：設計見積番号
-                remarks: row[26], // AA列：備考
-                otherCompany: row[27], // AB列：他社
-                history: row[28], // AC列：履歴
-                mainContract: row[29], // AD列：本契約
-                total: row[30], // AE列：計
-                
-                // 計算フィールド（日付に依存しないもののみ事前計算）
-                // isOrder: 動的に計算（ReportGeneratorで実行）
-                isOvertime: this.isOvertime(parsedDate, row[1], row[10], row[11], row[6]), // 時間外判定
-                isElderly: this.isElderly(row[6]), // 高齢者判定
-                isExcessive: this.isExcessive(row[10]), // 過量販売判定
-                isSingle: this.isSingle(row[10]), // 単独契約判定
-                region: this.getRegionName(row[2]), // 地区名
-                isHolidayConstruction: false, // 公休日施工（動的に計算）
-                isProhibitedConstruction: false, // 禁止日施工（動的に計算）
-                
-                // デバッグ用フィールド
-                debugJ: row[9], // J列の確認区分
-                debugK: row[10], // K列の確認者日時
+                completionTime: row[22], // W列：完工予定時間
+                notes: row[23], // X列：備考
+                // 追加の列があればここに追加
                 debugA: row[0], // A列の日付
                 debugB: row[1]  // B列の時間
             };
         }); // 全データを保持（フィルタリングはレポート生成時に実行）
-        
-        console.log('最終的なフィルタリング結果:', {
-            totalRows: dataRows.length,
-            processedRows: processedData.length,
-            filteredOut: dataRows.length - processedData.length
-        });
-        
-        // データの詳細分析を追加
-        if (processedData.length > 0) {
-            const sampleData = processedData.slice(0, 5);
-            console.log('サンプルデータ（最初の5件）:', sampleData.map((row, index) => ({
-                index: index + 1,
-                staffName: row.staffName,
-                staffNameType: typeof row.staffName,
-                staffNameLength: row.staffName ? row.staffName.length : 0,
-                staffNameTrimmed: row.staffName ? row.staffName.trim() : '',
-                isOrder: undefined, // 動的に計算されるため
-                age: row.contractorAge,
-                regionNumber: row.regionNumber,
-                departmentNumber: row.departmentNumber
-            })));
-            
-            // 担当者名の統計
-            const staffNameStats = {
-                total: processedData.length,
-                hasStaffName: processedData.filter(row => row.staffName && row.staffName.trim() !== '').length,
-                emptyStaffName: processedData.filter(row => !row.staffName || row.staffName.trim() === '').length,
-                staffNameTypes: processedData.reduce((acc, row) => {
-                    const type = typeof row.staffName;
-                    acc[type] = (acc[type] || 0) + 1;
-                    return acc;
-                }, {} as Record<string, number>)
-            };
-            console.log('担当者名の統計:', staffNameStats);
-        }
         
         return processedData;
     }
@@ -191,15 +118,12 @@ export class ExcelProcessor {
             return null;
         }
         
-        console.log('parseDate入力値:', { value, type: typeof value });
-        
         // Excelの日付形式（数値）を処理
         if (typeof value === 'number') {
             // Excelの日付は1900年1月1日からの日数（修正版）
             // 45889 = 2025年8月20日になるように調整
             const excelEpoch = new Date(1900, 0, 1);
             const date = new Date(excelEpoch.getTime() + (value - 2) * 24 * 60 * 60 * 1000);
-            console.log('parseDate数値結果:', date);
             return date;
         }
         
@@ -212,7 +136,6 @@ export class ExcelProcessor {
             if (japaneseMatch) {
                 const [_, year, month, day] = japaneseMatch;
                 const result = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-                console.log('parseDate和暦結果:', result);
                 return result;
             }
             
@@ -221,7 +144,6 @@ export class ExcelProcessor {
             if (slashMatch) {
                 const [_, year, month, day] = slashMatch;
                 const result = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-                console.log('parseDate YYYY/MM/DD結果:', result);
                 return result;
             }
             
@@ -230,234 +152,295 @@ export class ExcelProcessor {
             if (dashMatch) {
                 const [_, year, month, day] = dashMatch;
                 const result = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-                console.log('parseDate YYYY-MM-DD結果:', result);
                 return result;
             }
             
-            // "MM/DD→MM/DD" 形式（最初の日付を使用）
-            const arrowMatch = trimmedValue.match(/(\d{1,2})\/(\d{1,2})→/);
-            if (arrowMatch) {
-                const [_, month, day] = arrowMatch;
-                const year = 2025; // 固定年（必要に応じて調整）
-                const result = new Date(year, parseInt(month) - 1, parseInt(day));
-                console.log('parseDate MM/DD→結果:', result);
+            // "MM/DD" 形式（年は現在年を使用）
+            const shortMatch = trimmedValue.match(/(\d{1,2})\/(\d{1,2})/);
+            if (shortMatch) {
+                const [_, month, day] = shortMatch;
+                const currentYear = new Date().getFullYear();
+                const result = new Date(currentYear, parseInt(month) - 1, parseInt(day));
                 return result;
             }
             
-            // 直接Date()コンストラクタを試行（フォールバック）
+            // 直接変換を試行
             try {
                 const result = new Date(trimmedValue);
                 if (!isNaN(result.getTime())) {
-                    console.log('parseDate直接変換結果:', result);
                     return result;
                 }
             } catch (error) {
-                console.log('parseDate直接変換失敗:', error);
+                // 変換失敗は無視
             }
         }
         
-        console.log('parseDate変換失敗:', value);
         return null;
     }
     
     private parseTime(value: any): string | null {
-        if (!value) return null;
+        if (!value) {
+            return null;
+        }
         
         // Excelの時間形式（数値）を処理
         if (typeof value === 'number') {
-            const hours = Math.floor(value * 24);
-            const minutes = Math.floor((value * 24 - hours) * 60);
+            // Excelの時間は0.0〜1.0の小数（例：0.5 = 12:00）
+            const totalMinutes = Math.round(value * 24 * 60);
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
             return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
         }
         
         // 文字列形式の時間を処理
         if (typeof value === 'string') {
-            return value;
+            const trimmedValue = value.trim();
+            
+            // "HH:MM" 形式
+            const timeMatch = trimmedValue.match(/(\d{1,2}):(\d{1,2})/);
+            if (timeMatch) {
+                const [_, hours, minutes] = timeMatch;
+                return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
+            }
+            
+            // "HH：MM" 形式（全角コロン）
+            const fullTimeMatch = trimmedValue.match(/(\d{1,2})：(\d{1,2})/);
+            if (fullTimeMatch) {
+                const [_, hours, minutes] = fullTimeMatch;
+                return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
+            }
         }
         
         return null;
     }
     
     private parseAge(value: any): number | null {
-        if (!value) return null;
+        if (value === null || value === undefined || value === '') {
+            return null;
+        }
         
-        const age = parseInt(value);
-        return isNaN(age) ? null : age;
+        const numValue = Number(value);
+        if (!isNaN(numValue) && numValue > 0 && numValue < 150) {
+            return numValue;
+        }
+        
+        return null;
     }
     
-    // isActionCompleted関数は削除（不要）
-
-    private isOrder(confirmation: any, confirmationDateTime: any, date: any, age: any, targetDate?: Date): boolean {
-        // 一時的に簡素化：基本的なデータチェックのみ
-        console.log('isOrder判定開始（簡素化版）:', {
-            confirmation: confirmation,
-            confirmationDateTime: confirmationDateTime,
-            date: date,
-            age: age
-        });
-
-        // 基本的なデータ存在チェック
-        if (!date) {
-            console.log('日付が存在しないため除外');
-            return false;
+    /**
+     * 担当者名を正規化する
+     * 括弧内の情報（役職、担当範囲、技術分野など）を除いて基本の担当者名を抽出
+     * 例：
+     * - "山田(SE)" → "山田"
+     * - "山田(岡田)" → "山田"
+     * - "山田(技)" → "山田"
+     * - "山田（技術）" → "山田"
+     */
+    private normalizeStaffName(staffName: any): string {
+        if (!staffName || typeof staffName !== 'string') {
+            return '';
         }
-
-        // 担当者名の存在チェック（E列）
-        // このチェックは後で行うため、ここではスキップ
-
-        console.log('isOrder判定結果: true（簡素化版）');
-        return true;
+        
+        const trimmedName = staffName.trim();
+        if (trimmedName === '') {
+            return '';
+        }
+        
+        // 括弧（半角・全角）で囲まれた部分を除去
+        // 半角括弧: ( )
+        // 全角括弧: （ ）
+        const normalizedName = trimmedName.replace(/[\(（].*?[\)）]/g, '');
+        
+        // 前後の空白を除去して返す
+        return normalizedName.trim();
     }
     
-
-
-    private isSingle(confirmation: any): boolean {
-        if (!confirmation) {
-            return false;
-        }
-        
-        const confirmationStr = String(confirmation).toLowerCase();
-        const result = confirmationStr.includes('単独');
-        
-        console.log('isSingle判定:', { confirmation, confirmationStr, result });
-        return result;
-    }
-
-    private isExcessive(confirmation: any): boolean {
-        if (!confirmation) {
-            return false;
-        }
-        
-        const confirmationStr = String(confirmation).toLowerCase();
-        const result = confirmationStr.includes('過量');
-        
-        console.log('isExcessive判定:', { confirmation, confirmationStr, result });
-        return result;
-    }
-
-    private isOvertime(date: any, time: any, confirmation: any, confirmationDateTime: any, age: any, targetDate?: Date): boolean {
-        console.log('isOvertime判定開始:', {
-            date: date instanceof Date ? date.toLocaleDateString() : date,
-            time: time,
-            confirmation: confirmation,
-            confirmationDateTime: confirmationDateTime
-        });
-        
+    /**
+     * 受注としてカウントするかどうかを判定
+     * 動的日付判定に対応
+     */
+    public isOrderForDate(row: any, targetDate: Date): boolean {
         // 基本的なデータ存在チェック
-        if (!date) {
-            console.log('日付が存在しないため除外');
+        if (!row.date || !targetDate) {
             return false;
         }
         
-        // 時間外判定の優先順位（カウント条件.mdに基づく）
-        let checkTime: Date | null = null;
+        // 日付が一致するかチェック
+        const rowDate = new Date(row.date);
+        const targetDateOnly = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+        const rowDateOnly = new Date(rowDate.getFullYear(), rowDate.getMonth(), rowDate.getDate());
         
-        // 1. K列が「同時」の場合：A列+B列の日付時間を使用
-        if (confirmation && String(confirmation).toLowerCase() === '同時') {
-            if (date instanceof Date && time) {
-                const timeStr = String(time);
-                const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})/);
-                if (timeMatch) {
-                    checkTime = new Date(date);
-                    checkTime.setHours(parseInt(timeMatch[1]), parseInt(timeMatch[2]), 0, 0);
-                }
+        if (rowDateOnly.getTime() !== targetDateOnly.getTime()) {
+            return false;
+        }
+        
+        // J列（確認区分）のチェック
+        const confirmation = row.confirmation;
+        if (confirmation === 1 || confirmation === 2 || confirmation === 5) {
+            return false;
+        }
+        
+        // K列（確認者日時）のチェック
+        const confirmationDateTime = row.confirmationDateTime;
+        if (!confirmationDateTime || typeof confirmationDateTime !== 'string') {
+            return false;
+        }
+        
+        const confirmationStr = String(confirmationDateTime);
+        
+        // 除外キーワードのチェック
+        const excludeKeywords = ['担当待ち', '直電', '契約時', '契約', '待ち'];
+        if (excludeKeywords.some(keyword => confirmationStr.includes(keyword))) {
+            return false;
+        }
+        
+        // 有効なパターンのチェック
+        // パターン1: "同時"
+        if (confirmationStr.includes('同時')) {
+            return true;
+        }
+        
+        // パターン2: 契約者が69歳以下の場合、空欄または「過量」が含まれる
+        if (row.contractorAge && row.contractorAge <= 69) {
+            if (confirmationStr === '' || confirmationStr.includes('過量')) {
+                return true;
             }
         }
-        // 2. K列に日付+時間が含まれる場合：K列の時間を使用
-        else if (confirmation) {
-            const confirmationStr = String(confirmation);
-            const timeMatch = confirmationStr.match(/(\d{1,2})[：:]\s*(\d{2})/);
-            if (timeMatch) {
-                checkTime = new Date();
-                checkTime.setHours(parseInt(timeMatch[1]), parseInt(timeMatch[2]), 0, 0);
+        
+        // パターン3: 日付+時間+担当者名の形式
+        const dateTimePattern = /(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})\s+.+/;
+        if (dateTimePattern.test(confirmationStr)) {
+            const kColumnDate = this.parseDateFromKColumn(confirmationDateTime);
+            if (kColumnDate) {
+                const kColumnDateOnly = new Date(kColumnDate.getFullYear(), kColumnDate.getMonth(), kColumnDate.getDate());
+                return kColumnDateOnly.getTime() === targetDateOnly.getTime();
             }
         }
         
-        // 3. K列に時間情報がない場合：A列+B列の時間を使用
-        if (!checkTime && date instanceof Date && time) {
-            const timeStr = String(time);
-            const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})/);
-            if (timeMatch) {
-                checkTime = new Date(date);
-                checkTime.setHours(parseInt(timeMatch[1]), parseInt(timeMatch[2]), 0, 0);
-            }
-        }
-        
-        // 18:30以降かチェック
-        if (checkTime) {
-            const overtimeThreshold = new Date(checkTime);
-            overtimeThreshold.setHours(18, 30, 0, 0);
-            
-            const result = checkTime >= overtimeThreshold;
-            console.log('isOvertime判定結果:', {
-                checkTime: checkTime.toLocaleTimeString(),
-                threshold: '18:30',
-                result: result
-            });
-            return result;
-        }
-        
-        console.log('isOvertime判定結果: false（時間情報なし）');
         return false;
     }
     
-    private isElderly(age: any): boolean {
-        const parsedAge = this.parseAge(age);
-        return parsedAge !== null && parsedAge >= 70;
-    }
-    
-
-    
-    // 現在の日付フィルターを取得（動的）
-    private getCurrentDateFilter(): Date {
-        // UIから日付を取得
-        const reportDateInput = document.getElementById('reportDate') as HTMLInputElement;
-        console.log('getCurrentDateFilter - UI要素チェック:', {
-            element: !!reportDateInput,
-            value: reportDateInput?.value,
-            type: reportDateInput?.type
-        });
-        
-        if (reportDateInput && reportDateInput.value) {
-            // タイムゾーンの問題を回避するため、YYYY-MM-DD形式から直接作成
-            const [year, month, day] = reportDateInput.value.split('-').map(Number);
-            const selectedDate = new Date(year, month - 1, day); // monthは0ベース
-            console.log('getCurrentDateFilter - 正常パス:', {
-                inputValue: reportDateInput.value,
-                splitResult: [year, month, day],
-                selectedDate: selectedDate.toLocaleDateString(),
-                selectedDateISO: selectedDate.toISOString()
-            });
-            return selectedDate;
+    /**
+     * 単独契約かどうかを判定
+     */
+    public isSingle(confirmation: any): boolean {
+        if (!confirmation || typeof confirmation !== 'string') {
+            return false;
         }
         
-        // デフォルトは今日の日付
-        const today = new Date();
-        console.log('getCurrentDateFilter - デフォルトパス:', {
-            today: today.toLocaleDateString(),
-            todayISO: today.toISOString()
-        });
-        return today;
+        const confirmationStr = String(confirmation);
+        const result = confirmationStr.includes('単独');
+        
+        return result;
     }
     
-    private getRegionName(regionNumber: any): string {
-        if (!regionNumber) return '不明';
-        
-        const number = parseInt(regionNumber);
-        if (isNaN(number)) return '不明';
-        
-        switch (number) {
-            case 511:
-                return '九州地区';
-            case 521:
-            case 531:
-                return '中四国地区';
-            case 541:
-                return '関西地区';
-            case 561:
-                return '関東地区';
-            default:
-                return 'その他';
+    /**
+     * 過量販売かどうかを判定
+     */
+    public isExcessive(confirmation: any): boolean {
+        if (!confirmation || typeof confirmation !== 'string') {
+            return false;
         }
+        
+        const confirmationStr = String(confirmation);
+        const result = confirmationStr.includes('過量');
+        
+        return result;
+    }
+    
+    /**
+     * 時間外対応かどうかを判定
+     * 18:30以降の対応を時間外とする
+     */
+    public isOvertime(date: any, time: any, confirmation: any, confirmationDateTime: any, age: any, targetDate?: Date): boolean {
+        
+        // 基本的なデータ存在チェック
+        if (!date) {
+            return false;
+        }
+        
+        // 受注条件を満たすかチェック
+        if (targetDate && !this.isOrderForDate({ date, time, confirmation, confirmationDateTime, contractorAge: age }, targetDate)) {
+            return false;
+        }
+        
+        // 時間外判定の優先順位
+        
+        // 優先度1: K列が「同時」の場合
+        if (confirmationDateTime && typeof confirmationDateTime === 'string' && confirmationDateTime.includes('同時')) {
+            if (date && time) {
+                const checkTime = new Date(date);
+                const [hours, minutes] = time.split(':').map(Number);
+                checkTime.setHours(hours, minutes, 0, 0);
+                
+                const overtimeThreshold = new Date(date);
+                overtimeThreshold.setHours(18, 30, 0, 0);
+                
+                const result = checkTime >= overtimeThreshold;
+                return result;
+            }
+        }
+        
+        // 優先度2: K列に時間情報が含まれる場合
+        if (confirmationDateTime && typeof confirmationDateTime === 'string') {
+            const timeMatch = confirmationDateTime.match(/(\d{1,2}):(\d{1,2})/);
+            if (timeMatch) {
+                const [_, hours, minutes] = timeMatch;
+                const checkTime = new Date(date);
+                checkTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                
+                const overtimeThreshold = new Date(date);
+                overtimeThreshold.setHours(18, 30, 0, 0);
+                
+                const result = checkTime >= overtimeThreshold;
+                return result;
+            }
+            
+            // 全角コロンも対応
+            const fullTimeMatch = confirmationDateTime.match(/(\d{1,2})：(\d{1,2})/);
+            if (fullTimeMatch) {
+                const [_, hours, minutes] = fullTimeMatch;
+                const checkTime = new Date(date);
+                checkTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                
+                const overtimeThreshold = new Date(date);
+                overtimeThreshold.setHours(18, 30, 0, 0);
+                
+                const result = checkTime >= overtimeThreshold;
+                return result;
+            }
+        }
+        
+        // 優先度3: その他の場合（A列+B列の時間）
+        if (date && time) {
+            const checkTime = new Date(date);
+            const [hours, minutes] = time.split(':').map(Number);
+            checkTime.setHours(hours, minutes, 0, 0);
+            
+            const overtimeThreshold = new Date(date);
+            overtimeThreshold.setHours(18, 30, 0, 0);
+            
+            const result = checkTime >= overtimeThreshold;
+            return result;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * 現在の日付フィルターを取得（動的）
+     */
+    public getCurrentDateFilter(): Date {
+        // UI要素から日付を取得
+        const dateInput = document.getElementById('dateInput') as HTMLInputElement;
+        if (dateInput && dateInput.value) {
+            const inputDate = new Date(dateInput.value);
+            if (!isNaN(inputDate.getTime())) {
+                return inputDate;
+            }
+        }
+        
+        // UI要素が取得できない場合は現在日付を使用
+        return new Date();
     }
 }

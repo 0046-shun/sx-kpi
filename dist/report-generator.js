@@ -51,12 +51,6 @@ export class ReportGenerator {
         this.currentTargetDate = targetDate; // 時間外判定で使用
         const targetMonth = targetDate.getMonth();
         const targetDay = targetDate.getDate();
-        console.log('日報生成開始:', {
-            targetDate: targetDate.toLocaleDateString(),
-            targetMonth: targetMonth,
-            targetDay: targetDay,
-            totalData: data.length
-        });
         const dailyData = data.filter(row => {
             // A列の日付チェック
             let isDateMatch = false;
@@ -114,12 +108,6 @@ export class ReportGenerator {
             }
             const isValid = isDateMatch && isJColumnValid && isKColumnValid;
             return isValid;
-        });
-        console.log('日報生成結果:', {
-            targetDate: targetDate.toLocaleDateString(),
-            totalData: data.length,
-            filteredData: dailyData.length,
-            filteredOut: data.length - dailyData.length
         });
         const reportData = this.calculateReportData(dailyData, 'daily');
         // 選択された日付情報を追加
@@ -210,24 +198,10 @@ export class ReportGenerator {
                         }
                     }
                     if (isTarget820) {
-                        console.log('8/20データの時間チェック:', {
-                            contractor: row.contractor,
-                            time: row.time,
-                            timeType: typeof row.time,
-                            hours, minutes, totalMinutes,
-                            cutoff: 18 * 60 + 30,
-                            isOvertime: totalMinutes >= 18 * 60 + 30
-                        });
+                        // デバッグ情報（必要に応じて）
                     }
                     if (totalMinutes >= 18 * 60 + 30) { // 18:30以降
                         contractorOvertimeCount = 1;
-                        console.log('時間外検出（A列+B列）:', {
-                            date: row.date.toLocaleDateString(),
-                            time: row.time,
-                            timeType: typeof row.time,
-                            hours, minutes, totalMinutes,
-                            cutoff: 18 * 60 + 30
-                        });
                     }
                 }
             }
@@ -236,12 +210,6 @@ export class ReportGenerator {
         if (row.confirmationDateTime && typeof row.confirmationDateTime === 'string') {
             const kColumnStr = String(row.confirmationDateTime);
             if (isTarget820) {
-                console.log('8/20データのK列チェック:', {
-                    contractor: row.contractor,
-                    kColumnStr: kColumnStr,
-                    includes同時: kColumnStr === '同時',
-                    includesColon: kColumnStr.includes(':')
-                });
             }
             // ③K列が「同時」の場合は、AB列でカウント済なのでカウント無し
             if (kColumnStr === '同時') {
@@ -263,12 +231,6 @@ export class ReportGenerator {
                         const kTotalMinutes = kHour * 60 + kMinute;
                         if (kTotalMinutes >= 18 * 60 + 30) {
                             confirmerOvertimeCount = 1;
-                            console.log('時間外検出（K列）:', {
-                                kColumnStr,
-                                kMonth, kDay, kHour, kMinute,
-                                kTotalMinutes,
-                                cutoff: 18 * 60 + 30
-                            });
                         }
                     }
                 }
@@ -288,13 +250,6 @@ export class ReportGenerator {
                                     const totalMinutes = hours * 60 + minutes;
                                     if (totalMinutes >= 18 * 60 + 30) {
                                         confirmerOvertimeCount = 1;
-                                        console.log('時間外検出（K列スペース区切り）:', {
-                                            kColumnStr,
-                                            dateStr, timeStr,
-                                            month, day, hours, minutes,
-                                            totalMinutes,
-                                            cutoff: 18 * 60 + 30
-                                        });
                                     }
                                 }
                             }
@@ -306,25 +261,10 @@ export class ReportGenerator {
         // ①＋②が時間外件数となる（独立してカウント）
         const totalCount = contractorOvertimeCount + confirmerOvertimeCount;
         if (isTarget820) {
-            console.log('8/20データの最終判定:', {
-                contractor: row.contractor,
-                time: row.time,
-                confirmationDateTime: row.confirmationDateTime,
-                contractorCount: contractorOvertimeCount,
-                confirmerCount: confirmerOvertimeCount,
-                totalCount: totalCount
-            });
+            // デバッグ情報（必要に応じて）
         }
         if (totalCount > 0) {
-            console.log('時間外として判定:', {
-                contractor: row.contractor,
-                date: row.date?.toLocaleDateString(),
-                time: row.time,
-                confirmationDateTime: row.confirmationDateTime,
-                contractorCount: contractorOvertimeCount,
-                confirmerCount: confirmerOvertimeCount,
-                totalCount: totalCount
-            });
+            // 時間外判定結果（必要に応じて）
         }
         return totalCount;
     }
@@ -456,19 +396,13 @@ export class ReportGenerator {
     // 担当者別ランキング集計メソッド
     // 契約者70歳以上の受注件数トップ10ランキング
     calculateElderlyStaffRanking(data) {
-        console.log('calculateElderlyStaffRanking 開始 - データ件数:', data.length);
         const staffCounts = new Map();
         data.forEach((row, index) => {
             // 動的にisOrderを計算
             const isOrder = this.isOrderForDate(row, new Date());
             const age = row.contractorAge || row.age;
             if (index < 10) {
-                console.log(`高齢者 行${index}:`, {
-                    staffName: row.staffName,
-                    age: age,
-                    isOrder: isOrder,
-                    isElderly: age && age >= 70
-                });
+                // デバッグ情報（必要に応じて）
             }
             // 条件: 70歳以上 AND 受注 AND 担当者名が存在
             if (age && age >= 70 && isOrder && row.staffName && row.staffName.trim() !== '') {
@@ -494,17 +428,11 @@ export class ReportGenerator {
     }
     // 単独契約ランキング
     calculateSingleContractRanking(data) {
-        console.log('calculateSingleContractRanking 開始 - データ件数:', data.length);
         const staffCounts = new Map();
         data.forEach((row, index) => {
             // 動的にisOrderを計算
             const isOrder = this.isOrderForDate(row, new Date());
             if (index < 10) {
-                console.log(`単独契約 行${index}:`, {
-                    staffName: row.staffName,
-                    isSingle: row.isSingle,
-                    isOrder: isOrder
-                });
             }
             // 条件: 単独契約 AND 受注 AND 担当者名が存在
             if (row.isSingle && isOrder && row.staffName && row.staffName.trim() !== '') {
@@ -531,17 +459,11 @@ export class ReportGenerator {
     }
     // 過量販売ランキング
     calculateExcessiveSalesRanking(data) {
-        console.log('calculateExcessiveSalesRanking 開始 - データ件数:', data.length);
         const staffCounts = new Map();
         data.forEach((row, index) => {
             // 動的にisOrderを計算
             const isOrder = this.isOrderForDate(row, new Date());
             if (index < 10) {
-                console.log(`過量販売 行${index}:`, {
-                    staffName: row.staffName,
-                    isExcessive: row.isExcessive,
-                    isOrder: isOrder
-                });
             }
             // 条件: 過量販売 AND 受注 AND 担当者名が存在
             if (row.isExcessive && isOrder && row.staffName && row.staffName.trim() !== '') {
@@ -568,7 +490,6 @@ export class ReportGenerator {
     }
     // 69歳以下契約件数の担当別件数
     calculateNormalAgeStaffRanking(data) {
-        console.log('calculateNormalAgeStaffRanking 開始 - データ件数:', data.length);
         const staffCounts = new Map();
         data.forEach((row, index) => {
             // 動的にisOrderを計算
@@ -576,12 +497,7 @@ export class ReportGenerator {
             const age = row.contractorAge || row.age;
             const isNormalAge = !age || age < 70;
             if (index < 10) {
-                console.log(`69歳以下 行${index}:`, {
-                    staffName: row.staffName,
-                    age: age,
-                    isNormalAge: isNormalAge,
-                    isOrder: isOrder
-                });
+                // デバッグ情報（必要に応じて）
             }
             // 条件: 69歳以下 AND 受注 AND 担当者名が存在
             if (isNormalAge && isOrder && row.staffName && row.staffName.trim() !== '') {
@@ -1332,7 +1248,6 @@ export class ReportGenerator {
     }
     // 担当別データを生成
     generateStaffData(data) {
-        console.log('generateStaffData開始, データ件数:', data.length);
         const staffMap = new Map();
         // データの詳細を確認
         let orderCount = 0;
@@ -1354,16 +1269,7 @@ export class ReportGenerator {
             if (isOrder && row.staffName && row.staffName.trim() !== '') {
                 validStaffCount++;
                 if (index < 5) { // 最初の5件のデータをログ出力
-                    console.log(`有効な行${index}:`, {
-                        isOrder: row.isOrder,
-                        staffName: row.staffName,
-                        departmentNumber: row.departmentNumber,
-                        regionNumber: row.regionNumber,
-                        age: row.age,
-                        isSingle: row.isSingle,
-                        isExcessive: row.isExcessive,
-                        isOvertime: row.isOvertime
-                    });
+                    // デバッグ情報（必要に応じて）
                 }
                 const key = `${row.regionNumber || ''}-${row.departmentNumber || ''}-${row.staffName}`;
                 if (!staffMap.has(key)) {
@@ -1398,16 +1304,8 @@ export class ReportGenerator {
                     staff.overtimeOrders++;
             }
         });
-        console.log('データ分析結果:', {
-            totalRows: data.length,
-            orderRows: orderCount,
-            staffNameRows: staffNameCount,
-            validStaffRows: validStaffCount
-        });
-        console.log('担当者別集計完了, 担当者数:', staffMap.size);
         // 件数降順でソート
         const result = Array.from(staffMap.values()).sort((a, b) => b.totalOrders - a.totalOrders);
-        console.log('担当別データ結果(最初の3件):', result.slice(0, 3));
         return result;
     }
     // 担当別データのHTMLを生成

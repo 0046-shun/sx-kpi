@@ -30,28 +30,28 @@ export class App {
     private setupEventListeners(): void {
         // ファイルドロップエリアの設定
         const dropArea = document.getElementById('dropArea');
-        console.log('ドロップエリア要素:', dropArea);
+
         
         if (dropArea) {
-            console.log('ドロップエリアのイベントリスナーを設定中...');
+    
             
             dropArea.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                console.log('dragover イベント発生');
+
                 dropArea.classList.add('dragover');
             });
             
             dropArea.addEventListener('dragleave', (e) => {
-                console.log('dragleave イベント発生');
+
                 dropArea.classList.remove('dragover');
             });
             
             dropArea.addEventListener('drop', (e) => {
                 e.preventDefault();
-                console.log('drop イベント発生');
+
                 dropArea.classList.remove('dragover');
                 const files = e.dataTransfer?.files;
-                console.log('ドロップされたファイル:', files);
+
                 if (files && files.length > 0) {
                     this.handleFileUpload(files[0]);
                 }
@@ -60,7 +60,7 @@ export class App {
             // ドラッグエンターイベントも追加
             dropArea.addEventListener('dragenter', (e) => {
                 e.preventDefault();
-                console.log('dragenter イベント発生');
+
             });
         } else {
             console.error('ドロップエリア要素が見つかりません');
@@ -159,7 +159,7 @@ export class App {
     // ファイルアップロード処理
     private async handleFileUpload(file: File): Promise<void> {
         try {
-            console.log('ファイルアップロード開始:', file.name);
+    
             
             // スタートメッセージを表示
             this.showMessage(`ファイル「${file.name}」の読み込みを開始しました...`, 'info');
@@ -177,7 +177,7 @@ export class App {
             this.updateStaffData();
             this.updateDataConfirmation();
             
-            console.log('ファイル処理完了:', data.length, '件');
+    
             
             // 完了メッセージを表示
             this.showMessage(`ファイル「${file.name}」の読み込みが完了しました。総データ件数: ${data.length}件`, 'success');
@@ -260,30 +260,30 @@ export class App {
 
     // 担当別データを更新
     private updateStaffData(): void {
-        console.log('担当別データ更新開始, currentDataの件数:', this.currentData?.length || 0);
+
         if (this.currentData && this.currentData.length > 0) {
             const staffData = this.reportGenerator.generateStaffData(this.currentData);
-            console.log('担当別データ生成完了, 担当者数:', staffData?.length || 0);
+    
             const staffContainer = document.getElementById('staffDataContent');
             if (staffContainer) {
                 staffContainer.innerHTML = this.reportGenerator.createStaffDataHTML(staffData);
-                console.log('担当別データHTMLを更新しました');
+        
             } else {
                 console.error('staffDataContent要素が見つかりません');
             }
         } else {
-            console.log('データがないため担当別データを更新できません');
+    
         }
     }
 
     // 確認データを更新
     private updateDataConfirmation(): void {
-        console.log('確認データ更新開始, currentDataの件数:', this.currentData?.length || 0);
+
         if (this.currentData && this.currentData.length > 0) {
             const dataContainer = document.getElementById('dataConfirmationContent');
             if (dataContainer) {
                 dataContainer.innerHTML = this.reportGenerator.createDataConfirmationHTML(this.currentData);
-                console.log('確認データHTMLを更新しました');
+        
                 
                 // フィルター機能を設定
                 this.setupDataFilters();
@@ -291,7 +291,7 @@ export class App {
                 console.error('dataConfirmationContent要素が見つかりません');
             }
         } else {
-            console.log('データがないため確認データを更新できません');
+    
         }
     }
     
@@ -371,7 +371,7 @@ export class App {
 
     // メッセージ表示
     private showMessage(message: string, type: 'success' | 'error' | 'info'): void {
-        console.log('showMessage呼び出し:', { message, type });
+
         
         // 既存のメッセージを削除
         const existingMessages = document.querySelectorAll('.alert-message');
@@ -392,7 +392,7 @@ export class App {
         
         // メッセージをbodyに追加
         document.body.appendChild(alertDiv);
-        console.log('メッセージを表示しました:', alertDiv);
+
         
         // 閉じるボタンのイベントリスナー
         const closeButton = alertDiv.querySelector('.btn-close');
@@ -406,7 +406,7 @@ export class App {
         setTimeout(() => {
             if (alertDiv.parentNode) {
                 alertDiv.remove();
-                console.log('メッセージを自動削除しました');
+        
             }
         }, 3000);
     }
