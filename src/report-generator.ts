@@ -2,15 +2,44 @@ import { HolidaySettings, StaffData } from './types.js';
 
 export class ReportGenerator {
     private currentTargetDate: Date | null = null;
+    private excelProcessor: any;
     private holidaySettings: HolidaySettings = {
         publicHolidays: [],
         prohibitedDays: []
     };
+
+    constructor(excelProcessor: any) {
+        this.excelProcessor = excelProcessor;
+    }
     
     // 公休日・禁止日設定を更新
     updateHolidaySettings(settings: HolidaySettings): void {
         this.holidaySettings = settings;
     }
+
+    // 地区名を取得
+    private getRegionName(regionNumber: any): string {
+        if (!regionNumber) return 'その他';
+        
+        const number = parseInt(regionNumber);
+        if (isNaN(number)) return 'その他';
+        
+        switch (number) {
+            case 511:
+                return '九州地区';
+            case 521:
+            case 531:
+                return '中四国地区';
+            case 541:
+                return '関西地区';
+            case 561:
+                return '関東地区';
+            default:
+                return 'その他';
+        }
+    }
+
+
     
     // 公休日施工の判定
     private isHolidayConstruction(row: any): boolean {
@@ -368,16 +397,19 @@ export class ReportGenerator {
         };
         
         data.forEach(row => {
-            const region = row.region;
+            const region = this.getRegionName(row.regionNumber);
             if (regions[region]) {
                 regions[region].orders++;
                 regions[region].overtime += this.getOvertimeCount(row, this.currentTargetDate);
-                if (row.isExcessive) {
+                
+                // 動的に判定
+                if (this.excelProcessor.isExcessive(row.confirmationDateTime)) {
                     regions[region].excessive++;
                 }
-                if (row.isSingle) {
+                if (this.excelProcessor.isSingle(row.confirmationDateTime)) {
                     regions[region].single++;
                 }
+                
                 // 公休日・禁止日施工の判定と集計
                 // T列（着工日）が公休日・禁止日 → カウント
                 // T列でカウントされていない場合のみ、V列（完工予定日）を照合
@@ -407,13 +439,22 @@ export class ReportGenerator {
         };
         
         data.forEach(row => {
-            if (row.isElderly) {
+            const age = row.contractorAge || row.age;
+            const isElderly = age && age >= 70;
+            
+            if (isElderly) {
                 stats.elderly.total++;
-                if (row.isExcessive) stats.elderly.excessive++;
-                if (row.isSingle) stats.elderly.single++;
+                if (this.excelProcessor.isExcessive(row.confirmationDateTime)) {
+                    stats.elderly.excessive++;
+                }
+                if (this.excelProcessor.isSingle(row.confirmationDateTime)) {
+                    stats.elderly.single++;
+                }
             } else {
                 stats.normal.total++;
-                if (row.isExcessive) stats.normal.excessive++;
+                if (this.excelProcessor.isExcessive(row.confirmationDateTime)) {
+                    stats.normal.excessive++;
+                }
             }
         });
         
@@ -456,18 +497,7 @@ export class ReportGenerator {
 
     // 受注判定メソッド（日付指定版）
     private isOrderForDate(row: any, targetDate: Date): boolean {
-        // 基本的な条件チェック
-        if (!row.staffName || row.staffName.trim() === '') {
-            return false;
-        }
-        
-        // 日付が存在するかチェック
-        if (!row.date) {
-            return false;
-        }
-        
-        // 簡素化された受注判定（一時的）
-        return true;
+        return this.excelProcessor.isOrderForDate(row, targetDate);
     }
 
     // 担当者別ランキング集計メソッド
@@ -524,7 +554,7 @@ export class ReportGenerator {
             }
             
             // 条件: 単独契約 AND 受注 AND 担当者名が存在
-            if (row.isSingle && isOrder && row.staffName && row.staffName.trim() !== '') {
+            if (this.excelProcessor.isSingle(row.confirmationDateTime) && isOrder && row.staffName && row.staffName.trim() !== '') {
                 const key = `${row.departmentNumber}_${row.staffName}`;
                 const existing = staffCounts.get(key);
                 if (existing) {
@@ -562,7 +592,7 @@ export class ReportGenerator {
             }
             
             // 条件: 過量販売 AND 受注 AND 担当者名が存在
-            if (row.isExcessive && isOrder && row.staffName && row.staffName.trim() !== '') {
+            if (this.excelProcessor.isExcessive(row.confirmationDateTime) && isOrder && row.staffName && row.staffName.trim() !== '') {
                 const key = `${row.departmentNumber}_${row.staffName}`;
                 const existing = staffCounts.get(key);
                 if (existing) {
@@ -1458,9 +1488,9 @@ export class ReportGenerator {
                 }
                 
                 // その他の分類
-                if (row.isSingle) staff.singleOrders++;
-                if (row.isExcessive) staff.excessiveOrders++;
-                if (row.isOvertime) staff.overtimeOrders++;
+                if (this.excelProcessor.isSingle(row.confirmationDateTime)) staff.singleOrders++;
+                if (this.excelProcessor.isExcessive(row.confirmationDateTime)) staff.excessiveOrders++;
+                if (this.excelProcessor.isOvertime(row.date, row.time, row.confirmation, row.confirmationDateTime, row.contractorAge)) staff.overtimeOrders++;
             }
         });
         

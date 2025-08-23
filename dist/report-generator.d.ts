@@ -1,8 +1,11 @@
 import { HolidaySettings, StaffData } from './types.js';
 export declare class ReportGenerator {
     private currentTargetDate;
+    private excelProcessor;
     private holidaySettings;
+    constructor(excelProcessor: any);
     updateHolidaySettings(settings: HolidaySettings): void;
+    private getRegionName;
     private isHolidayConstruction;
     private isProhibitedConstruction;
     private isPublicHoliday;

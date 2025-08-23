@@ -6,7 +6,7 @@ export class App {
     constructor() {
         this.currentData = [];
         this.excelProcessor = new ExcelProcessor();
-        this.reportGenerator = new ReportGenerator();
+        this.reportGenerator = new ReportGenerator(this.excelProcessor);
         this.dataManager = DataManager.getInstance();
         this.calendarManager = new CalendarManager();
         this.initializeApp();
