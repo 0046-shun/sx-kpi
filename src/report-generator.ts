@@ -211,12 +211,14 @@ export class ReportGenerator {
         reportData.selectedMonth = month;
         reportData.selectedYear = year;
         
-        // 担当者別ランキング集計
+        // 担当者別ランキング集計（月報の対象期間で判定）
+        const targetYear = year;
+        const targetMonth = monthNum - 1; // JavaScript月は0ベース
         
-        reportData.elderlyStaffRanking = this.calculateElderlyStaffRanking(monthlyData);
-        reportData.singleContractRanking = this.calculateSingleContractRanking(monthlyData);
-        reportData.excessiveSalesRanking = this.calculateExcessiveSalesRanking(monthlyData);
-        reportData.normalAgeStaffRanking = this.calculateNormalAgeStaffRanking(monthlyData);
+        reportData.elderlyStaffRanking = this.calculateElderlyStaffRanking(monthlyData, targetYear, targetMonth);
+        reportData.singleContractRanking = this.calculateSingleContractRanking(monthlyData, targetYear, targetMonth);
+        reportData.excessiveSalesRanking = this.calculateExcessiveSalesRanking(monthlyData, targetYear, targetMonth);
+        reportData.normalAgeStaffRanking = this.calculateNormalAgeStaffRanking(monthlyData, targetYear, targetMonth);
         
 
         
@@ -513,13 +515,13 @@ export class ReportGenerator {
     // 担当者別ランキング集計メソッド
 
     // 契約者70歳以上の受注件数トップ10ランキング
-    private calculateElderlyStaffRanking(data: any[]): any[] {
+    private calculateElderlyStaffRanking(data: any[], targetYear?: number, targetMonth?: number): any[] {
 
         const staffCounts = new Map<string, { regionNo: string; departmentNo: string; staffName: string; count: number }>();
         
         data.forEach((row, index) => {
-            // 動的にisOrderを計算
-            const isOrder = this.isOrderForDate(row, new Date());
+            // 動的にisOrderを計算（行の日付を使用）
+            const isOrder = this.isOrderForDate(row, row.date);
             const age = row.contractorAge || row.age;
             
             if (index < 10) {
@@ -551,13 +553,13 @@ export class ReportGenerator {
     }
 
     // 単独契約ランキング
-    private calculateSingleContractRanking(data: any[]): any[] {
+    private calculateSingleContractRanking(data: any[], targetYear?: number, targetMonth?: number): any[] {
 
         const staffCounts = new Map<string, { regionNo: string; departmentNo: string; staffName: string; count: number }>();
         
         data.forEach((row, index) => {
-            // 動的にisOrderを計算
-            const isOrder = this.isOrderForDate(row, new Date());
+            // 動的にisOrderを計算（行の日付を使用）
+            const isOrder = this.isOrderForDate(row, row.date);
             
             if (index < 10) {
 
@@ -589,13 +591,13 @@ export class ReportGenerator {
     }
 
     // 過量販売ランキング
-    private calculateExcessiveSalesRanking(data: any[]): any[] {
+    private calculateExcessiveSalesRanking(data: any[], targetYear?: number, targetMonth?: number): any[] {
 
         const staffCounts = new Map<string, { regionNo: string; departmentNo: string; staffName: string; count: number }>();
         
         data.forEach((row, index) => {
-            // 動的にisOrderを計算
-            const isOrder = this.isOrderForDate(row, new Date());
+            // 動的にisOrderを計算（行の日付を使用）
+            const isOrder = this.isOrderForDate(row, row.date);
             
             if (index < 10) {
 
@@ -627,13 +629,13 @@ export class ReportGenerator {
     }
 
     // 69歳以下契約件数の担当別件数
-    private calculateNormalAgeStaffRanking(data: any[]): any[] {
+    private calculateNormalAgeStaffRanking(data: any[], targetYear?: number, targetMonth?: number): any[] {
 
         const staffCounts = new Map<string, { regionNo: string; departmentNo: string; staffName: string; count: number }>();
         
         data.forEach((row, index) => {
-            // 動的にisOrderを計算
-            const isOrder = this.isOrderForDate(row, new Date());
+            // 動的にisOrderを計算（行の日付を使用）
+            const isOrder = this.isOrderForDate(row, row.date);
             const age = row.contractorAge || row.age;
             const isNormalAge = !age || age < 70;
             
@@ -1448,8 +1450,8 @@ export class ReportGenerator {
         let validStaffCount = 0;
         
         data.forEach((row, index) => {
-            // 動的にisOrderを計算
-            const isOrder = this.isOrderForDate(row, new Date());
+            // 動的にisOrderを計算（行の日付を使用）
+            const isOrder = this.isOrderForDate(row, row.date);
             row.isOrder = isOrder; // 結果を保存
             
             // 受注件数のカウント
@@ -1512,6 +1514,42 @@ export class ReportGenerator {
         const result = Array.from(staffMap.values()).sort((a, b) => b.totalOrders - a.totalOrders);
 
         return result;
+    }
+
+    // 担当別データのCSV出力
+    public async exportStaffDataToCSV(staffData: StaffData[]): Promise<void> {
+        try {
+            const reportMonthInput = document.getElementById('reportMonth') as HTMLInputElement;
+            let fileName = '担当別データ_全期間.csv';
+            
+            if (reportMonthInput && reportMonthInput.value) {
+                const [year, month] = reportMonthInput.value.split('-').map(Number);
+                const monthText = `${year}年${month}月`;
+                fileName = `担当別データ_${monthText}.csv`;
+            }
+
+            const csvData = [
+                ['担当別データ'],
+                [''],
+                ['地区', '所属', '担当名', '受注件数', '契約者69歳以下件数', '70歳以上件数', '単独件数', '過量件数', '時間外件数'],
+                ...staffData.map(staff => [
+                    staff.regionNo || '',
+                    staff.departmentNo || '',
+                    staff.staffName,
+                    staff.totalOrders.toString(),
+                    staff.normalAgeOrders.toString(),
+                    staff.elderlyOrders.toString(),
+                    staff.singleOrders.toString(),
+                    staff.excessiveOrders.toString(),
+                    staff.overtimeOrders.toString()
+                ])
+            ];
+
+            await this.downloadCSV(csvData, fileName);
+        } catch (error) {
+            console.error('担当別データCSV出力エラー:', error);
+            alert('CSVの出力に失敗しました。');
+        }
     }
 
     // 担当別データのHTMLを生成

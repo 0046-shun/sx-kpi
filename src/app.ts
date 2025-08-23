@@ -177,6 +177,9 @@ export class App {
             this.updateStaffData();
             this.updateDataConfirmation();
             
+            // 担当別データのCSV出力ボタンのイベントリスナーを設定
+            this.setupStaffDataExportButton();
+            
     
             
             // 完了メッセージを表示
@@ -231,6 +234,9 @@ export class App {
             
             const report = this.reportGenerator.generateMonthlyReport(data, monthString);
             this.displayReport(report, 'monthly');
+            
+            // 担当別データも月報データで更新
+            this.updateStaffData(report.rawData);
         } catch (error) {
             console.error('月報生成エラー:', error);
             this.showMessage('月報の生成中にエラーが発生しました。', 'error');
@@ -256,24 +262,57 @@ export class App {
         
         // エクスポートボタンのイベントリスナーを設定
         this.setupExportButtons(type, report);
+        
+        // 担当別データのCSV出力ボタンのイベントリスナーを設定
+        this.setupStaffDataExportButton();
     }
 
     // 担当別データを更新
-    private updateStaffData(): void {
+    private updateStaffData(monthlyData?: any[]): void {
+        let targetData = this.currentData;
+        
+        // 月報データが指定されている場合は、その月のデータのみを使用
+        if (monthlyData && monthlyData.length > 0) {
+            targetData = monthlyData;
+        }
 
-        if (this.currentData && this.currentData.length > 0) {
-            const staffData = this.reportGenerator.generateStaffData(this.currentData);
+        if (targetData && targetData.length > 0) {
+            const staffData = this.reportGenerator.generateStaffData(targetData);
     
             const staffContainer = document.getElementById('staffDataContent');
             if (staffContainer) {
-                staffContainer.innerHTML = this.reportGenerator.createStaffDataHTML(staffData);
+                // 月情報を表示するヘッダーを追加
+                const monthHeader = this.createMonthHeaderForStaffData();
+                staffContainer.innerHTML = monthHeader + this.reportGenerator.createStaffDataHTML(staffData);
         
             } else {
                 console.error('staffDataContent要素が見つかりません');
             }
         } else {
-    
+            const staffContainer = document.getElementById('staffDataContent');
+            if (staffContainer) {
+                staffContainer.innerHTML = '<div class="alert alert-info">データがありません</div>';
+            }
         }
+    }
+
+    // 担当別データ用の月ヘッダーを生成
+    private createMonthHeaderForStaffData(): string {
+        const reportMonthInput = document.getElementById('reportMonth') as HTMLInputElement;
+        if (reportMonthInput && reportMonthInput.value) {
+            const [year, month] = reportMonthInput.value.split('-').map(Number);
+            const monthText = `${year}年${month}月`;
+            return `
+                <div class="alert alert-info mb-3">
+                    <h5><i class="fas fa-calendar-alt me-2"></i>対象期間: ${monthText}</h5>
+                </div>
+            `;
+        }
+        return `
+            <div class="alert alert-info mb-3">
+                <h5><i class="fas fa-calendar-alt me-2"></i>対象期間: 全期間</h5>
+            </div>
+        `;
     }
 
     // 確認データを更新
@@ -295,6 +334,54 @@ export class App {
         }
     }
     
+    // 担当別データのCSV出力ボタンのイベントリスナーを設定
+    private setupStaffDataExportButton(): void {
+        const exportButton = document.querySelector('.btn-export-staff-data');
+        if (exportButton) {
+            exportButton.addEventListener('click', async () => {
+                try {
+                    // 現在の担当別データを取得
+                    const currentData = this.currentData;
+                    if (!currentData || currentData.length === 0) {
+                        this.showMessage('データが読み込まれていません。', 'error');
+                        return;
+                    }
+
+                    // 月報データが存在する場合は、その月のデータを使用
+                    const monthlyData = this.getCurrentMonthlyData();
+                    const targetData = monthlyData && monthlyData.length > 0 ? monthlyData : currentData;
+                    
+                    const staffData = this.reportGenerator.generateStaffData(targetData);
+                    await this.reportGenerator.exportStaffDataToCSV(staffData);
+                    
+                    this.showMessage('担当別データのCSV出力が完了しました。', 'success');
+                } catch (error) {
+                    console.error('担当別データCSV出力エラー:', error);
+                    this.showMessage('CSVの出力に失敗しました。', 'error');
+                }
+            });
+        }
+    }
+
+    // 現在の月報データを取得
+    private getCurrentMonthlyData(): any[] | null {
+        const reportMonthInput = document.getElementById('reportMonth') as HTMLInputElement;
+        if (reportMonthInput && reportMonthInput.value) {
+            const data = this.dataManager.getData();
+            if (data.length > 0) {
+                try {
+                    const monthString = reportMonthInput.value;
+                    const report = this.reportGenerator.generateMonthlyReport(data, monthString);
+                    return report.rawData || null;
+                } catch (error) {
+                    console.error('月報データ取得エラー:', error);
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
     // データフィルター機能を設定
     private setupDataFilters(): void {
         const staffFilter = document.getElementById('staffFilter') as HTMLInputElement;
