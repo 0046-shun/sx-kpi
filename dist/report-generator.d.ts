@@ -43,4 +43,8 @@ export declare class ReportGenerator {
     exportStaffDataToCSV(staffData: StaffData[]): Promise<void>;
     createStaffDataHTML(staffData: StaffData[]): string;
     createDataConfirmationHTML(data: any[]): string;
+    createDailyReportPDFHTML(report: any): string;
+    private createRegionStatsPDFHTML;
+    private createRegionCardHTML;
+    createMonthlyReportPDFHTML(report: any): string;
 }

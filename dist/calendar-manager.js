@@ -17,14 +17,26 @@ export class CalendarManager {
     }
     // 公休日かどうかの判定
     isPublicHoliday(date) {
+        // nullチェックを追加
+        if (!date) {
+            return false;
+        }
         return this.holidaySettings.publicHolidays.some(holiday => this.isSameDate(date, holiday));
     }
     // 禁止日かどうかの判定
     isProhibitedDay(date) {
+        // nullチェックを追加
+        if (!date) {
+            return false;
+        }
         return this.holidaySettings.prohibitedDays.some(prohibited => this.isSameDate(date, prohibited));
     }
     // 日付が同じかどうかの判定
     isSameDate(date1, date2) {
+        // nullチェックを追加
+        if (!date1 || !date2) {
+            return false;
+        }
         return date1.getFullYear() === date2.getFullYear() &&
             date1.getMonth() === date2.getMonth() &&
             date1.getDate() === date2.getDate();
