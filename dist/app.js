@@ -87,105 +87,179 @@ export class App {
         // 公休日・禁止日設定の初期化
         this.setupHolidaySettingsModal();
     }
+    // 公休日・禁止日設定モーダルの設定
     setupHolidaySettingsModal() {
-        // モーダル表示時の処理
-        const modal = document.getElementById('holidaySettingsModal');
-        if (modal) {
-            modal.addEventListener('show.bs.modal', () => {
-                this.loadHolidaySettings();
-                this.generateCalendar('publicHolidayCalendar', 'public');
-                this.generateCalendar('prohibitedDayCalendar', 'prohibited');
-            });
+        // 削除ボタンのイベントリスナーを設定
+        this.setupHolidayRemoveButtons();
+        // 月変更ボタンのイベントリスナーを設定
+        const prevMonthPublic = document.getElementById('prevMonthPublic');
+        const nextMonthPublic = document.getElementById('nextMonthPublic');
+        const prevMonthProhibited = document.getElementById('prevMonthProhibited');
+        const nextMonthProhibited = document.getElementById('nextMonthProhibited');
+        if (prevMonthPublic) {
+            prevMonthPublic.addEventListener('click', () => this.changeMonth('public', -1));
         }
-        // 保存ボタンのイベントリスナー
+        if (nextMonthPublic) {
+            nextMonthPublic.addEventListener('click', () => this.changeMonth('public', 1));
+        }
+        if (prevMonthProhibited) {
+            prevMonthProhibited.addEventListener('click', () => this.changeMonth('prohibited', -1));
+        }
+        if (nextMonthProhibited) {
+            nextMonthProhibited.addEventListener('click', () => this.changeMonth('prohibited', 1));
+        }
+        // 設定保存ボタンのイベントリスナーを設定
         const saveButton = document.getElementById('saveHolidaySettings');
         if (saveButton) {
-            saveButton.addEventListener('click', () => {
-                this.saveHolidaySettings();
-            });
+            saveButton.addEventListener('click', () => this.saveHolidaySettings());
         }
-        // 公休日追加ボタンのイベントリスナー
+        // 個別追加ボタンのイベントリスナーを設定
         const addPublicHolidayButton = document.getElementById('addPublicHoliday');
         if (addPublicHolidayButton) {
-            addPublicHolidayButton.addEventListener('click', () => {
-                this.addPublicHoliday();
-            });
+            addPublicHolidayButton.addEventListener('click', () => this.addPublicHoliday());
         }
-        // 禁止日追加ボタンのイベントリスナー
         const addProhibitedDayButton = document.getElementById('addProhibitedDay');
         if (addProhibitedDayButton) {
-            addProhibitedDayButton.addEventListener('click', () => {
-                this.addProhibitedDay();
+            addProhibitedDayButton.addEventListener('click', () => this.addProhibitedDay());
+        }
+        // モーダルが表示されたときの処理
+        const modal = document.getElementById('holidaySettingsModal');
+        if (modal) {
+            modal.addEventListener('shown.bs.modal', () => {
+                // カレンダーを生成
+                this.generateCalendar('publicHolidayCalendar', 'public');
+                this.generateCalendar('prohibitedDayCalendar', 'prohibited');
+                // 設定済み日付一覧を表示
+                this.loadHolidaySettings();
+                // 削除ボタンのイベントリスナーを再設定
+                this.setupHolidayRemoveButtons();
+                console.log('モーダル表示完了 - イベントリスナー設定済み');
             });
         }
-        // 月移動ボタンのイベントリスナー
-        const prevMonthPublicButton = document.getElementById('prevMonthPublic');
-        const nextMonthPublicButton = document.getElementById('nextMonthPublic');
-        if (prevMonthPublicButton) {
-            prevMonthPublicButton.addEventListener('click', () => {
-                this.changeMonth('public', -1);
-            });
+    }
+    // 削除ボタンのイベントリスナーを設定
+    setupHolidayRemoveButtons() {
+        // 公休日削除ボタンのイベントリスナー
+        const publicRemoveButtons = document.querySelectorAll('.holiday-remove[data-type="public"]');
+        publicRemoveButtons.forEach(button => {
+            // 既存のイベントリスナーを削除
+            button.removeEventListener('click', this.handleHolidayRemove);
+            // 新しいイベントリスナーを追加
+            button.addEventListener('click', this.handleHolidayRemove.bind(this));
+        });
+        // 禁止日削除ボタンのイベントリスナー
+        const prohibitedRemoveButtons = document.querySelectorAll('.holiday-remove[data-type="prohibited"]');
+        prohibitedRemoveButtons.forEach(button => {
+            // 既存のイベントリスナーを削除
+            button.removeEventListener('click', this.handleHolidayRemove);
+            // 新しいイベントリスナーを追加
+            button.addEventListener('click', this.handleHolidayRemove.bind(this));
+        });
+        console.log(`削除ボタンのイベントリスナーを設定: 公休日${publicRemoveButtons.length}個, 禁止日${prohibitedRemoveButtons.length}個`);
+    }
+    // 削除ボタンのクリックイベントハンドラー
+    handleHolidayRemove(e) {
+        const target = e.target;
+        const buttonElement = target.closest('.holiday-remove');
+        if (buttonElement) {
+            const dateStr = buttonElement.dataset.date;
+            const type = buttonElement.dataset.type;
+            if (dateStr && type) {
+                console.log(`削除ボタンクリック: ${dateStr}, タイプ: ${type}`);
+                // 日付文字列を正しく解析
+                const [year, month, day] = dateStr.split('-').map(Number);
+                const date = new Date(year, month - 1, day); // monthは0ベースなので-1
+                this.removeHolidayDate(date, type);
+            }
+            else {
+                console.error('削除ボタンのデータ属性が不正:', { dateStr, type });
+            }
         }
-        if (nextMonthPublicButton) {
-            nextMonthPublicButton.addEventListener('click', () => {
-                this.changeMonth('public', 1);
-            });
-        }
-        const prevMonthProhibitedButton = document.getElementById('prevMonthProhibited');
-        const nextMonthProhibitedButton = document.getElementById('nextMonthProhibited');
-        if (prevMonthProhibitedButton) {
-            prevMonthProhibitedButton.addEventListener('click', () => {
-                this.changeMonth('prohibited', -1);
-            });
-        }
-        if (nextMonthProhibitedButton) {
-            nextMonthProhibitedButton.addEventListener('click', () => {
-                this.changeMonth('prohibited', 1);
-            });
-        }
-        // 動的に追加される削除ボタンのイベントリスナー（委譲）
-        const modalBody = modal?.querySelector('.modal-body');
-        if (modalBody) {
-            modalBody.addEventListener('click', (e) => {
-                const target = e.target;
-                if (target.classList.contains('holiday-remove')) {
-                    const holidayItem = target.closest('.holiday-item');
-                    if (holidayItem) {
-                        const dateText = holidayItem.querySelector('.holiday-date')?.textContent;
-                        const type = holidayItem.classList.contains('public') ? 'public' : 'prohibited';
-                        if (dateText) {
-                            const date = new Date(dateText);
-                            this.removeHolidayDate(date, type);
-                        }
-                    }
-                }
-            });
+        else {
+            console.error('削除ボタンが見つかりません');
         }
     }
     addPublicHoliday() {
         const dateInput = document.getElementById('publicHolidayDate');
         if (dateInput && dateInput.value) {
-            const date = new Date(dateInput.value);
+            // 日付文字列を正しく解析（タイムゾーンの影響を排除）
+            const [year, month, day] = dateInput.value.split('-').map(Number);
+            const date = new Date(year, month - 1, day); // monthは0ベースなので-1
+            // 既存の設定を確認
+            const settings = this.calendarManager.getSettings();
+            if (settings.publicHolidays.some(d => this.isSameDate(d, date))) {
+                this.showMessage('この日付は既に設定されています。', 'info');
+                return;
+            }
+            // CalendarManagerに追加
             this.calendarManager.addPublicHoliday(date);
-            this.loadHolidaySettings(); // リストを更新
+            // DataManagerにも同期
+            const updatedSettings = this.calendarManager.getSettings();
+            this.dataManager.setHolidaySettings(updatedSettings);
+            // ReportGeneratorにも設定を反映
+            this.reportGenerator.updateHolidaySettings(updatedSettings);
+            // 設定済み日付一覧を更新
+            this.loadHolidaySettings();
+            // カレンダーを再生成
+            this.generateCalendar('publicHolidayCalendar', 'public');
+            // 成功メッセージを表示
+            this.showMessage(`公休日「${dateInput.value}」が正常に追加されました。`, 'success');
+            console.log(`公休日を追加: ${dateInput.value}`);
         }
     }
     addProhibitedDay() {
         const dateInput = document.getElementById('prohibitedDayDate');
         if (dateInput && dateInput.value) {
-            const date = new Date(dateInput.value);
+            // 日付文字列を正しく解析（タイムゾーンの影響を排除）
+            const [year, month, day] = dateInput.value.split('-').map(Number);
+            const date = new Date(year, month - 1, day); // monthは0ベースなので-1
+            // 既存の設定を確認
+            const settings = this.calendarManager.getSettings();
+            if (settings.prohibitedDays.some(d => this.isSameDate(d, date))) {
+                this.showMessage('この日付は既に設定されています。', 'info');
+                return;
+            }
+            // CalendarManagerに追加
             this.calendarManager.addProhibitedDay(date);
-            this.loadHolidaySettings(); // リストを更新
+            // DataManagerにも同期
+            const updatedSettings = this.calendarManager.getSettings();
+            this.dataManager.setHolidaySettings(updatedSettings);
+            // ReportGeneratorにも設定を反映
+            this.reportGenerator.updateHolidaySettings(updatedSettings);
+            // 設定済み日付一覧を更新
+            this.loadHolidaySettings();
+            // カレンダーを再生成
+            this.generateCalendar('prohibitedDayCalendar', 'prohibited');
+            // 成功メッセージを表示
+            this.showMessage(`禁止日「${dateInput.value}」が正常に追加されました。`, 'success');
+            console.log(`禁止日を追加: ${dateInput.value}`);
         }
     }
     removeHolidayDate(date, type) {
+        const dateStr = this.formatDate(date);
+        console.log(`${type === 'public' ? '公休日' : '禁止日'}を削除開始: ${dateStr}`);
         if (type === 'public') {
             this.calendarManager.removePublicHoliday(date);
+            console.log(`公休日を削除: ${dateStr}`);
         }
         else {
             this.calendarManager.removeProhibitedDay(date);
+            console.log(`禁止日を削除: ${dateStr}`);
         }
-        this.loadHolidaySettings(); // リストを更新
+        // 設定を取得してDataManagerにも同期
+        const settings = this.calendarManager.getSettings();
+        this.dataManager.setHolidaySettings(settings);
+        // ReportGeneratorにも設定を反映
+        this.reportGenerator.updateHolidaySettings(settings);
+        // 設定済み日付一覧を更新
+        this.loadHolidaySettings();
+        // カレンダーを再生成して削除されたことを表示
+        const containerId = type === 'public' ? 'publicHolidayCalendar' : 'prohibitedDayCalendar';
+        this.generateCalendar(containerId, type);
+        // 削除完了メッセージを表示
+        const message = type === 'public' ? '公休日' : '禁止日';
+        this.showMessage(`${message}「${dateStr}」が削除されました。`, 'success');
+        console.log(`${type === 'public' ? '公休日' : '禁止日'}の削除完了: ${dateStr}`);
     }
     // 月を変更
     changeMonth(type, direction) {
@@ -202,13 +276,26 @@ export class App {
                 state.currentMonth = 0;
                 state.currentYear++;
             }
+            // ヘッダーの月表示を更新
+            this.updateMonthDisplay(type, state.currentYear, state.currentMonth);
             // カレンダーを再生成
             this.generateCalendar(containerId, type);
         }
     }
+    // ヘッダーの月表示を更新
+    updateMonthDisplay(type, year, month) {
+        const monthDisplayId = type === 'public' ? 'publicMonthDisplay' : 'prohibitedMonthDisplay';
+        const monthDisplay = document.getElementById(monthDisplayId);
+        if (monthDisplay) {
+            monthDisplay.textContent = `${year}年${month + 1}月`;
+        }
+    }
     loadHolidaySettings() {
-        // 現在の設定をモーダルに表示
+        // CalendarManagerから現在の設定を取得
         const settings = this.calendarManager.getSettings();
+        // DataManagerにも設定を同期
+        this.dataManager.setHolidaySettings(settings);
+        // 現在の設定をモーダルに表示
         this.displayHolidaySettings(settings);
         // 日付入力を現在の日付に設定
         const today = new Date();
@@ -221,6 +308,13 @@ export class App {
         if (prohibitedDayDateInput) {
             prohibitedDayDateInput.value = todayStr;
         }
+        // 削除ボタンのイベントリスナーを再設定
+        this.setupHolidayRemoveButtons();
+        // デバッグ用ログ
+        console.log('設定を読み込み:', {
+            publicHolidays: settings.publicHolidays.map(d => d.toISOString().split('T')[0]),
+            prohibitedDays: settings.prohibitedDays.map(d => d.toISOString().split('T')[0])
+        });
     }
     saveHolidaySettings() {
         // モーダルから設定を取得して保存
@@ -247,14 +341,18 @@ export class App {
                 ? '<p class="text-muted">設定された公休日はありません</p>'
                 : settings.publicHolidays
                     .sort((a, b) => a.getTime() - b.getTime())
-                    .map(date => `
-                        <div class="holiday-item public">
-                            <span class="holiday-date">${this.formatDate(date)}</span>
-                            <button class="holiday-remove" data-date="${date.toISOString()}" data-type="public">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    `).join('');
+                    .map(date => {
+                    // 日付文字列を正しく生成（タイムゾーンの影響を排除）
+                    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                    return `
+                            <div class="holiday-item public">
+                                <span class="holiday-date">${this.formatDate(date)}</span>
+                                <button class="holiday-remove" data-date="${dateStr}" data-type="public">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        `;
+                }).join('');
         }
         // 禁止日リストの表示
         const prohibitedDayList = document.getElementById('prohibitedDayList');
@@ -263,15 +361,24 @@ export class App {
                 ? '<p class="text-muted">設定された禁止日はありません</p>'
                 : settings.prohibitedDays
                     .sort((a, b) => a.getTime() - b.getTime())
-                    .map(date => `
-                        <div class="holiday-item prohibited">
-                            <span class="holiday-date">${this.formatDate(date)}</span>
-                            <button class="holiday-remove" data-date="${date.toISOString()}" data-type="prohibited">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    `).join('');
+                    .map(date => {
+                    // 日付文字列を正しく生成（タイムゾーンの影響を排除）
+                    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                    return `
+                            <div class="holiday-item prohibited">
+                                <span class="holiday-date">${this.formatDate(date)}</span>
+                                <button class="holiday-remove" data-date="${dateStr}" data-type="prohibited">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        `;
+                }).join('');
         }
+        // デバッグ用ログ
+        console.log('設定済み日付一覧を表示:', {
+            publicHolidays: settings.publicHolidays.map(d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`),
+            prohibitedDays: settings.prohibitedDays.map(d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
+        });
     }
     getHolidaySettingsFromModal() {
         // 現在の設定を取得
@@ -719,6 +826,8 @@ export class App {
         // カレンダーHTMLを生成
         const calendarHTML = this.createCalendarHTML(year, month, type, state.selectedDates);
         container.innerHTML = calendarHTML;
+        // ヘッダーの月表示を更新
+        this.updateMonthDisplay(type, year, month);
         // 追加ボタンをカレンダーグリッドの外側に配置
         const addButtonHTML = this.createAddButtonHTML(type, state.selectedDates);
         if (addButtonHTML) {
@@ -759,6 +868,9 @@ export class App {
         startDate.setDate(startDate.getDate() - firstDay.getDay());
         const settings = this.calendarManager.getSettings();
         const holidayDates = type === 'public' ? settings.publicHolidays : settings.prohibitedDays;
+        // デバッグ用ログ
+        console.log(`${type}カレンダー生成 - 対象年月: ${year}年${month + 1}月`);
+        console.log(`設定済み${type === 'public' ? '公休日' : '禁止日'}:`, holidayDates.map(d => d.toISOString().split('T')[0]));
         let html = '';
         const today = new Date();
         let currentDate = new Date(startDate);
@@ -776,11 +888,20 @@ export class App {
         for (let week = 0; week < 6; week++) {
             html += '<div class="calendar-week">';
             for (let day = 0; day < 7; day++) {
-                const dateString = currentDate.toISOString().split('T')[0];
+                // 日付文字列を正しく生成（タイムゾーンの影響を排除）
+                const dateString = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
                 const isCurrentMonth = currentDate.getMonth() === month;
                 const isToday = this.isSameDate(currentDate, today);
                 const isSelected = selectedDates.has(dateString);
-                const isHoliday = holidayDates.some(h => this.isSameDate(h, currentDate));
+                // 設定済み日付との比較（タイムゾーンの影響を排除）
+                const isHoliday = holidayDates.some(h => {
+                    const holidayString = `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}-${String(h.getDate()).padStart(2, '0')}`;
+                    return holidayString === dateString;
+                });
+                // デバッグ用ログ（特定の日付の場合）
+                if (isHoliday) {
+                    console.log(`${dateString} は${type === 'public' ? '公休日' : '禁止日'}として設定済み`);
+                }
                 let classes = 'day';
                 if (!isCurrentMonth)
                     classes += ' other-month';
@@ -816,14 +937,21 @@ export class App {
         const state = this.calendarStates[containerId];
         if (!state)
             return;
-        if (state.selectedDates.has(dateStr)) {
-            state.selectedDates.delete(dateStr);
+        // 日付文字列を正しく処理（タイムゾーンの影響を排除）
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const date = new Date(year, month - 1, day); // monthは0ベースなので-1
+        // 日付文字列を正しく生成
+        const normalizedDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        if (state.selectedDates.has(normalizedDateStr)) {
+            state.selectedDates.delete(normalizedDateStr);
         }
         else {
-            state.selectedDates.add(dateStr);
+            state.selectedDates.add(normalizedDateStr);
         }
         // カレンダーを再生成
         this.generateCalendar(containerId, type);
+        // デバッグ用ログ
+        console.log(`${type}カレンダー - 日付選択切り替え: ${normalizedDateStr}, 選択状態: ${state.selectedDates.has(normalizedDateStr)}`);
     }
     // 選択された日付を一括追加
     addSelectedDates(containerId, type) {
@@ -831,31 +959,50 @@ export class App {
         const state = this.calendarStates[containerId];
         if (!state)
             return;
+        // 追加する日付を記録
+        const addedDates = [];
         state.selectedDates.forEach(dateStr => {
-            const date = new Date(dateStr);
+            // 日付文字列を正しく解析（タイムゾーンの影響を排除）
+            const [year, month, day] = dateStr.split('-').map(Number);
+            const date = new Date(year, month - 1, day); // monthは0ベースなので-1
             if (type === 'public') {
                 if (!settings.publicHolidays.some(d => this.isSameDate(d, date))) {
                     settings.publicHolidays.push(date);
+                    addedDates.push(dateStr);
                 }
             }
             else {
                 if (!settings.prohibitedDays.some(d => this.isSameDate(d, date))) {
                     settings.prohibitedDays.push(date);
+                    addedDates.push(dateStr);
                 }
             }
         });
-        // 設定を保存
+        // CalendarManagerに設定を保存
         this.calendarManager.updateSettings(settings);
-        // 表示を更新
-        this.displayHolidaySettings(settings);
+        // DataManagerにも設定を同期
+        this.dataManager.setHolidaySettings(settings);
+        // ReportGeneratorにも設定を反映
+        this.reportGenerator.updateHolidaySettings(settings);
+        // 設定済み日付一覧を更新
+        this.loadHolidaySettings();
         // 選択状態をクリア
         if (this.calendarStates) {
             if (this.calendarStates[containerId]) {
                 this.calendarStates[containerId].selectedDates.clear();
             }
         }
-        // カレンダーを再生成
+        // カレンダーを再生成（追加された日付を表示）
         this.generateCalendar(containerId, type);
+        // 成功メッセージを表示
+        const message = type === 'public' ? '公休日' : '禁止日';
+        if (addedDates.length > 0) {
+            this.showMessage(`${message}が${addedDates.length}日正常に追加されました。`, 'success');
+            console.log(`追加された日付: ${addedDates.join(', ')}`);
+        }
+        else {
+            this.showMessage('追加する日付がありませんでした。', 'info');
+        }
     }
     // 日付比較
     isSameDate(date1, date2) {

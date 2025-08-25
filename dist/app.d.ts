@@ -10,10 +10,13 @@ export declare class App {
     private setupEventListeners;
     private initializeCalendarManager;
     private setupHolidaySettingsModal;
+    private setupHolidayRemoveButtons;
+    private handleHolidayRemove;
     private addPublicHoliday;
     private addProhibitedDay;
     private removeHolidayDate;
     private changeMonth;
+    private updateMonthDisplay;
     private loadHolidaySettings;
     private saveHolidaySettings;
     private displayHolidaySettings;
