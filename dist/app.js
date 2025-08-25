@@ -474,8 +474,12 @@ export class App {
             this.updateDataConfirmation();
             // 担当別データのCSV出力ボタンのイベントリスナーを設定
             this.setupStaffDataExportButton();
+            // 月報も自動生成して担当別データと連動
+            this.generateMonthlyReportForFileDrop();
             // 完了メッセージを表示
             this.showMessage(`ファイル「${file.name}」の読み込みが完了しました。総データ件数: ${data.length}件`, 'success');
+            // 担当別データを生成
+            this.updateStaffData();
         }
         catch (error) {
             console.error('ファイル処理エラー:', error);
@@ -519,9 +523,10 @@ export class App {
             // 選択された月から年月を取得
             const monthString = reportMonthInput.value; // 既に "YYYY-MM" 形式
             const report = this.reportGenerator.generateMonthlyReport(data, monthString);
+            // 月報を表示
             this.displayReport(report, 'monthly');
             // 担当別データも月報データで更新
-            this.updateStaffData(report.rawData);
+            this.updateStaffDataWithMonthlyData(report.rawData, monthString);
         }
         catch (error) {
             console.error('月報生成エラー:', error);
@@ -542,71 +547,105 @@ export class App {
                 monthlyContainer.innerHTML = this.reportGenerator.createMonthlyReportHTML(report);
             }
         }
-        // 担当別データも更新
-        this.updateStaffData();
+        // 担当別データも更新（月報の場合は月報データを渡す）
+        if (type === 'monthly' && report.rawData) {
+            this.updateStaffData(report.rawData);
+        }
+        else {
+            this.updateStaffData();
+        }
         // エクスポートボタンのイベントリスナーを設定
         this.setupExportButtons(type, report);
         // 担当別データのCSV出力ボタンのイベントリスナーを設定
         this.setupStaffDataExportButton();
     }
+    // データの月分布を取得
+    getMonthDistribution(data) {
+        const distribution = {};
+        data.forEach(row => {
+            if (row.date) {
+                const year = row.date.getFullYear();
+                const month = row.date.getMonth() + 1; // 0ベースなので+1
+                const key = `${year}年${month}月`;
+                distribution[key] = (distribution[key] || 0) + 1;
+            }
+        });
+        return distribution;
+    }
     // 担当別データを更新
     updateStaffData(monthlyData) {
-        let targetData = this.currentData;
-        // 月報データが指定されている場合は、その月のデータのみを使用
-        if (monthlyData && monthlyData.length > 0) {
-            targetData = monthlyData;
+        // ドロップされたファイルのデータを直接使用
+        const rawData = this.currentData || [];
+        if (rawData.length === 0) {
+            console.log('Excelデータがありません');
+            return;
         }
-        if (targetData && targetData.length > 0) {
-            // 月報の場合はその月の最初の日、そうでなければ現在の日付を使用
-            let targetDate;
-            if (monthlyData && monthlyData.length > 0) {
-                const reportMonthInput = document.getElementById('reportMonth');
-                if (reportMonthInput && reportMonthInput.value) {
-                    const [year, month] = reportMonthInput.value.split('-').map(Number);
-                    targetDate = new Date(year, month - 1, 1);
-                }
-                else {
-                    targetDate = new Date();
-                }
-            }
-            else {
-                targetDate = new Date();
-            }
-            const staffData = this.reportGenerator.generateStaffData(targetData, targetDate);
+        // ドロップされたデータの最初の行から月を取得
+        const firstRow = rawData[0];
+        if (firstRow && firstRow.date) {
+            const year = firstRow.date.getFullYear();
+            const month = firstRow.date.getMonth();
+            const targetDate = new Date(year, month, 15); // 月の15日を基準に設定
+            console.log(`ドロップデータからtargetDate設定: 元データ=${firstRow.date.toISOString()}, 年=${year}, 月=${month}, targetDate=${targetDate.toISOString()}`);
+            // データの月分布を確認
+            const monthDistribution = this.getMonthDistribution(rawData);
+            console.log('データの月分布:', monthDistribution);
+            const staffData = this.reportGenerator.generateStaffData(rawData, targetDate);
+            // 担当別データのHTMLを生成して表示
             const staffContainer = document.getElementById('staffDataContent');
             if (staffContainer) {
-                // 月情報を表示するヘッダーを追加
                 const monthHeader = this.createMonthHeaderForStaffData();
                 staffContainer.innerHTML = monthHeader + this.reportGenerator.createStaffDataHTML(staffData);
-                // 検索・ソート機能を設定
-                this.setupStaffDataSearchAndSort();
             }
-            else {
-                console.error('staffDataContent要素が見つかりません');
-            }
+            this.setupStaffDataSearchAndSort();
         }
         else {
+            console.log('ドロップデータから日付を取得できません');
+        }
+    }
+    // 担当別データを月報データで更新
+    updateStaffDataWithMonthlyData(monthlyData, monthString) {
+        if (monthlyData.length === 0) {
+            console.log('月報データがありません');
+            return;
+        }
+        // 月報データの最初の行から月を取得
+        const firstRow = monthlyData[0];
+        if (firstRow && firstRow.date) {
+            const year = firstRow.date.getFullYear();
+            const month = firstRow.date.getMonth();
+            const targetDate = new Date(year, month, 15); // 月の15日を基準に設定
+            console.log(`月報データからtargetDate設定: 月報データ=${firstRow.date.toISOString()}, 年=${year}, 月=${month}, targetDate=${targetDate.toISOString()}`);
+            // データの月分布を確認
+            const monthDistribution = this.getMonthDistribution(monthlyData);
+            console.log('月報データの月分布:', monthDistribution);
+            const staffData = this.reportGenerator.generateStaffData(monthlyData, targetDate);
+            // 担当別データのHTMLを生成して表示
             const staffContainer = document.getElementById('staffDataContent');
             if (staffContainer) {
-                staffContainer.innerHTML = '<div class="alert alert-info">データがありません</div>';
+                const monthHeader = this.createMonthHeaderForStaffData(monthString);
+                staffContainer.innerHTML = monthHeader + this.reportGenerator.createStaffDataHTML(staffData);
             }
+            this.setupStaffDataSearchAndSort();
+        }
+        else {
+            console.log('月報データから日付を取得できません');
         }
     }
     // 担当別データ用の月ヘッダーを生成
-    createMonthHeaderForStaffData() {
-        const reportMonthInput = document.getElementById('reportMonth');
-        if (reportMonthInput && reportMonthInput.value) {
-            const [year, month] = reportMonthInput.value.split('-').map(Number);
-            const monthText = `${year}年${month}月`;
+    createMonthHeaderForStaffData(monthString) {
+        if (!monthString) {
             return `
                 <div class="alert alert-info mb-3">
-                    <h5><i class="fas fa-calendar-alt me-2"></i>対象期間: ${monthText}</h5>
+                    <h5><i class="fas fa-calendar-alt me-2"></i>対象期間: 全期間</h5>
                 </div>
             `;
         }
+        const [year, month] = monthString.split('-').map(Number);
+        const monthText = `${year}年${month}月`;
         return `
             <div class="alert alert-info mb-3">
-                <h5><i class="fas fa-calendar-alt me-2"></i>対象期間: 全期間</h5>
+                <h5><i class="fas fa-calendar-alt me-2"></i>対象期間: ${monthText}</h5>
             </div>
         `;
     }
@@ -820,13 +859,16 @@ export class App {
             case 'staff':
                 return row.getAttribute('data-staff') || '';
             case 'orders':
-            case 'normalAge':
             case 'elderly':
             case 'single':
             case 'excessive':
             case 'overtime':
                 const value = parseInt(row.getAttribute(`data-${sortKey}`) || '0');
                 return isNaN(value) ? 0 : value;
+            case 'normalAge':
+                // 69歳以下の件数は data-normal-age 属性から取得
+                const normalAgeValue = parseInt(row.getAttribute('data-normal-age') || '0');
+                return isNaN(normalAgeValue) ? 0 : normalAgeValue;
             default:
                 return '';
         }
@@ -901,6 +943,31 @@ export class App {
             }
         }
         return null;
+    }
+    // 月報を自動生成して担当別データと連動
+    generateMonthlyReportForFileDrop() {
+        const data = this.dataManager.getData();
+        if (data.length === 0) {
+            console.log('ファイルドロップでデータが読み込まれていません。月報は生成されません。');
+            return;
+        }
+        const reportMonthInput = document.getElementById('reportMonth');
+        if (!reportMonthInput || !reportMonthInput.value) {
+            console.log('ファイルドロップで月報作成月が選択されていません。月報は生成されません。');
+            return;
+        }
+        try {
+            const monthString = reportMonthInput.value; // 既に "YYYY-MM" 形式
+            const report = this.reportGenerator.generateMonthlyReport(data, monthString);
+            // 月報を表示
+            this.displayReport(report, 'monthly');
+            // 担当別データも月報データで更新
+            this.updateStaffDataWithMonthlyData(report.rawData, monthString);
+        }
+        catch (error) {
+            console.error('ファイルドロップで月報生成エラー:', error);
+            this.showMessage('ファイルドロップで月報の生成中にエラーが発生しました。', 'error');
+        }
     }
     // データフィルター機能を設定
     setupDataFilters() {

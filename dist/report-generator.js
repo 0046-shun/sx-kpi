@@ -1151,80 +1151,141 @@ export class ReportGenerator {
     // 担当別データを生成
     generateStaffData(data, targetDate) {
         const staffData = [];
-        console.log('担当別データ生成開始 - 対象日付:', targetDate.toISOString().split('T')[0]);
-        console.log('総データ件数:', data.length);
-        data.forEach((row, index) => {
-            // デバッグ用ログ（最初の5行のみ）
-            if (index < 5) {
-                console.log(`行${index + 1}:`, {
-                    date: row.date,
-                    regionNumber: row.regionNumber,
-                    departmentNumber: row.departmentNumber,
-                    staffName: row.staffName,
-                    contractorAge: row.contractorAge,
-                    confirmationDateTime: row.confirmationDateTime,
-                    confirmation: row.confirmation
-                });
-            }
-            // 担当者名の正規化（括弧内の情報を除去）
+        console.log(`generateStaffData開始: データ件数=${data.length}, targetDate=${targetDate.toISOString()}`);
+        // 対象月のデータのみを抽出
+        const targetYear = targetDate.getFullYear();
+        const targetMonth = targetDate.getMonth();
+        const monthlyData = data.filter(row => {
+            if (!row.date)
+                return false;
+            return row.date.getFullYear() === targetYear && row.date.getMonth() === targetMonth;
+        });
+        console.log(`対象月(${targetYear}年${targetMonth + 1}月)のデータ件数: ${monthlyData.length}`);
+        monthlyData.forEach((row, index) => {
+            // 担当者名の正規化
             const normalizedStaffName = this.normalizeStaffName(row.staffName);
+            // 受注条件の判定（シンプル化）
+            const isOrder = this.isSimpleOrder(row);
+            // 年齢の取得
+            const ageNum = this.getContractorAge(row);
+            // 最初の10件のみデバッグログ
+            if (index < 10) {
+                console.log(`行${index}: ${normalizedStaffName}, 年齢:${ageNum}, isOrder:${isOrder}, 確認:${row.confirmation}, K列:${row.confirmationDateTime}`);
+            }
             if (normalizedStaffName && row.regionNumber && row.departmentNumber) {
                 const existingStaff = staffData.find(s => s.regionNo === row.regionNumber &&
                     s.departmentNo === row.departmentNumber &&
                     s.staffName === normalizedStaffName);
                 if (existingStaff) {
-                    // 既存の担当者データを更新
-                    // 受注件数は日付が一致する場合のみカウント
-                    if (this.isOrderForDate(row, targetDate)) {
+                    // 受注件数のカウント
+                    if (isOrder) {
                         existingStaff.totalOrders++;
-                    }
-                    // 年齢別件数は契約者年齢がある場合のみカウント
-                    if (row.contractorAge && typeof row.contractorAge === 'number') {
-                        if (row.contractorAge <= 69) {
-                            existingStaff.normalAgeOrders++;
+                        // 年齢カウント
+                        if (typeof ageNum === 'number') {
+                            if (ageNum <= 69) {
+                                existingStaff.normalAgeOrders++;
+                            }
+                            else if (ageNum >= 70) {
+                                existingStaff.elderlyOrders++;
+                            }
                         }
-                        else if (row.contractorAge >= 70) {
-                            existingStaff.elderlyOrders++;
+                        // その他のカウント
+                        if (this.excelProcessor.isSingle(row)) {
+                            existingStaff.singleOrders++;
                         }
-                    }
-                    // 単独・過量・時間外は該当する場合のみカウント
-                    if (this.excelProcessor.isSingle(row)) {
-                        existingStaff.singleOrders++;
-                    }
-                    if (this.excelProcessor.isExcessive(row)) {
-                        existingStaff.excessiveOrders++;
-                    }
-                    if (this.excelProcessor.isOvertime(row)) {
-                        existingStaff.overtimeOrders++;
+                        if (this.excelProcessor.isExcessive(row)) {
+                            existingStaff.excessiveOrders++;
+                        }
+                        if (this.excelProcessor.isOvertime(row)) {
+                            existingStaff.overtimeOrders++;
+                        }
                     }
                 }
                 else {
-                    // 新しい担当者データを作成
                     const newStaff = {
                         regionNo: row.regionNumber,
                         departmentNo: row.departmentNumber,
                         staffName: normalizedStaffName,
-                        totalOrders: this.isOrderForDate(row, targetDate) ? 1 : 0,
-                        normalAgeOrders: (row.contractorAge && typeof row.contractorAge === 'number' && row.contractorAge <= 69) ? 1 : 0,
-                        elderlyOrders: (row.contractorAge && typeof row.contractorAge === 'number' && row.contractorAge >= 70) ? 1 : 0,
-                        singleOrders: this.excelProcessor.isSingle(row) ? 1 : 0,
-                        excessiveOrders: this.excelProcessor.isExcessive(row) ? 1 : 0,
-                        overtimeOrders: this.excelProcessor.isOvertime(row) ? 1 : 0
+                        totalOrders: isOrder ? 1 : 0,
+                        normalAgeOrders: (isOrder && typeof ageNum === 'number' && ageNum <= 69) ? 1 : 0,
+                        elderlyOrders: (isOrder && typeof ageNum === 'number' && ageNum >= 70) ? 1 : 0,
+                        singleOrders: (isOrder && this.excelProcessor.isSingle(row)) ? 1 : 0,
+                        excessiveOrders: (isOrder && this.excelProcessor.isExcessive(row)) ? 1 : 0,
+                        overtimeOrders: (isOrder && this.excelProcessor.isOvertime(row)) ? 1 : 0
                     };
+                    if (index < 10) {
+                        console.log(`新規担当者: ${normalizedStaffName}, 受注:${newStaff.totalOrders}, 69歳以下:${newStaff.normalAgeOrders}, 70歳以上:${newStaff.elderlyOrders}`);
+                    }
                     staffData.push(newStaff);
                 }
             }
         });
-        // デバッグ用ログ
-        console.log('担当別データ集計結果:', {
-            totalStaff: staffData.length,
-            totalOrders: staffData.reduce((sum, staff) => sum + staff.totalOrders, 0),
-            totalElderly: staffData.reduce((sum, staff) => sum + staff.elderlyOrders, 0),
-            totalSingle: staffData.reduce((sum, staff) => sum + staff.singleOrders, 0),
-            totalExcessive: staffData.reduce((sum, staff) => sum + staff.excessiveOrders, 0),
-            totalOvertime: staffData.reduce((sum, staff) => sum + staff.overtimeOrders, 0)
+        // 最終結果のサマリー
+        const totalNormalAge = staffData.reduce((sum, staff) => sum + staff.normalAgeOrders, 0);
+        const totalElderly = staffData.reduce((sum, staff) => sum + staff.elderlyOrders, 0);
+        const totalOrders = staffData.reduce((sum, staff) => sum + staff.totalOrders, 0);
+        console.log(`最終集計: 受注総数=${totalOrders}, 69歳以下=${totalNormalAge}, 70歳以上=${totalElderly}`);
+        // デバッグ: 最初の10件の詳細
+        console.log('=== 最初の10件の詳細 ===');
+        staffData.slice(0, 10).forEach((staff, index) => {
+            console.log(`${index}: ${staff.staffName} - 受注:${staff.totalOrders}, 69歳以下:${staff.normalAgeOrders}, 70歳以上:${staff.elderlyOrders}`);
         });
         return staffData;
+    }
+    // シンプルな受注判定
+    isSimpleOrder(row) {
+        // J列の確認区分チェック（1、2、5の場合は除外）
+        const confirmation = row.confirmation;
+        if (typeof confirmation === 'number') {
+            if (confirmation === 1 || confirmation === 2 || confirmation === 5) {
+                return false;
+            }
+        }
+        else if (typeof confirmation === 'string') {
+            const trimmedValue = confirmation.trim();
+            if (trimmedValue !== '') {
+                const confirmationNum = parseInt(trimmedValue);
+                if (!isNaN(confirmationNum) && (confirmationNum === 1 || confirmationNum === 2 || confirmationNum === 5)) {
+                    return false;
+                }
+            }
+        }
+        // K列の除外キーワードチェック
+        if (row.confirmationDateTime && typeof row.confirmationDateTime === 'string') {
+            const confirmationStr = row.confirmationDateTime;
+            if (confirmationStr.includes('担当待ち') || confirmationStr.includes('直電')) {
+                return false;
+            }
+        }
+        return true;
+    }
+    // 文字列/数値いずれでも年齢を数値で取得する
+    getContractorAge(row) {
+        let age = row?.contractorAge ?? row?.age;
+        if (age == null) {
+            return undefined;
+        }
+        if (typeof age === 'number') {
+            const result = Number.isFinite(age) ? age : undefined;
+            return result;
+        }
+        if (typeof age === 'string') {
+            const trimmedAge = age.trim();
+            const matched = trimmedAge.match(/(\d+)/);
+            if (matched) {
+                const n = parseInt(matched[1], 10);
+                if (n > 0 && n < 150) {
+                    return n;
+                }
+            }
+            if (/^\d+$/.test(trimmedAge)) {
+                const n = parseInt(trimmedAge, 10);
+                if (n > 0 && n < 150) {
+                    return n;
+                }
+            }
+        }
+        return undefined;
     }
     // 担当者名を正規化するヘルパーメソッド
     normalizeStaffName(staffName) {

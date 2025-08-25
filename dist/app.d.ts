@@ -32,7 +32,9 @@ export declare class App {
     private generateDailyReport;
     private generateMonthlyReport;
     private displayReport;
+    private getMonthDistribution;
     private updateStaffData;
+    private updateStaffDataWithMonthlyData;
     private createMonthHeaderForStaffData;
     private updateDataConfirmation;
     private setupStaffDataSearchAndSort;
@@ -47,6 +49,7 @@ export declare class App {
     private compareValues;
     private setupStaffDataExportButton;
     private getCurrentMonthlyData;
+    private generateMonthlyReportForFileDrop;
     private setupDataFilters;
     private setupExportButtons;
     private showMessage;

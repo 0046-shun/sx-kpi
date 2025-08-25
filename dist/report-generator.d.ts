@@ -39,6 +39,8 @@ export declare class ReportGenerator {
     private downloadCSV;
     private createRankingTableHTML;
     generateStaffData(data: any[], targetDate: Date): StaffData[];
+    private isSimpleOrder;
+    private getContractorAge;
     private normalizeStaffName;
     exportStaffDataToCSV(staffData: StaffData[]): Promise<void>;
     createStaffDataHTML(staffData: StaffData[]): string;

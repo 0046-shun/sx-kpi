@@ -17,9 +17,9 @@ export declare class ExcelProcessor {
     private normalizeStaffName;
     /**
      * 受注としてカウントするかどうかを判定
-     * 動的日付判定に対応
+     * 月報用の判定（より寛容）
      */
-    private isOrderForDate;
+    isOrderForDate(row: any, targetDate: Date): boolean;
     /**
      * 単独契約かどうかを判定
      */

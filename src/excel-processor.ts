@@ -219,9 +219,34 @@ export class ExcelProcessor {
             return null;
         }
         
+        // すでに数値
+        if (typeof value === 'number') {
+            const n = Math.floor(value);
+            return n > 0 && n < 150 ? n : null;
+        }
+        
+        // 文字列から数字を抽出（例: '84歳', ' 84 ', '84.0', '84　歳'）
+        if (typeof value === 'string') {
+            const trimmedValue = value.trim();
+            
+            // 数字のみの文字列
+            if (/^\d+$/.test(trimmedValue)) {
+                const n = parseInt(trimmedValue, 10);
+                return n > 0 && n < 150 ? n : null;
+            }
+            
+            // 数字を含む文字列（例: '84歳', '84　歳'）
+            const matched = trimmedValue.match(/(\d+)/);
+            if (matched) {
+                const n = parseInt(matched[1], 10);
+                return n > 0 && n < 150 ? n : null;
+            }
+        }
+        
+        // それ以外は数値変換を試みる
         const numValue = Number(value);
         if (!isNaN(numValue) && numValue > 0 && numValue < 150) {
-            return numValue;
+            return Math.floor(numValue);
         }
         
         return null;
@@ -257,24 +282,65 @@ export class ExcelProcessor {
     
     /**
      * 受注としてカウントするかどうかを判定
-     * 動的日付判定に対応
+     * 月報用の判定（より寛容）
      */
-    private isOrderForDate(row: any, targetDate: Date): boolean {
+    public isOrderForDate(row: any, targetDate: Date): boolean {
         // 基本チェック
         if (!row.date || !targetDate) {
+            console.log(`基本チェック失敗: row.date=${row.date}, targetDate=${targetDate}`);
             return false;
         }
 
-        // 日付チェック（年月日のみ比較）
+        // 月単位での判定（月報の場合）
+        const monthMatch = row.date.getFullYear() === targetDate.getFullYear() && 
+                          row.date.getMonth() === targetDate.getMonth();
+        
+        if (monthMatch) {
+            // 月が一致する場合は、基本的に受注として扱う
+            // ただし、明らかに除外すべき条件のみチェック
+            
+            // J列条件チェック（1、2、5の場合は除外）
+            const confirmation = row.confirmation;
+            if (typeof confirmation === 'number') {
+                if (confirmation === 1 || confirmation === 2 || confirmation === 5) {
+                    console.log(`J列除外: ${row.staffName}, confirmation=${confirmation}`);
+                    return false;
+                }
+            } else if (typeof confirmation === 'string') {
+                const trimmedValue = confirmation.trim();
+                if (trimmedValue !== '') {
+                    const confirmationNum = parseInt(trimmedValue);
+                    if (!isNaN(confirmationNum) && (confirmationNum === 1 || confirmationNum === 2 || confirmationNum === 5)) {
+                        console.log(`J列除外: ${row.staffName}, confirmation=${confirmationNum}`);
+                        return false;
+                    }
+                }
+            }
+            
+            // K列の明らかな除外キーワードのみチェック
+            if (row.confirmationDateTime && typeof row.confirmationDateTime === 'string') {
+                const confirmationStr = row.confirmationDateTime;
+                // より厳密な除外条件のみ
+                if (confirmationStr.includes('担当待ち') || confirmationStr.includes('直電')) {
+                    console.log(`K列除外: ${row.staffName}, confirmationStr=${confirmationStr}`);
+            return false;
+                }
+            }
+            
+            // デバッグログ
+            if (Math.random() < 0.1) { // 10%の確率でログ出力
+                console.log(`受注として判定: ${row.staffName}, date=${row.date}, monthMatch=true`);
+            }
+            
+            return true;
+        }
+
+        // 日付単位での判定（日報の場合）
         const rowDateOnly = new Date(row.date.getFullYear(), row.date.getMonth(), row.date.getDate());
         const targetDateOnly = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
         const dateMatch = rowDateOnly.getTime() === targetDateOnly.getTime();
         
-        // 月単位での判定も追加（月報の場合）
-        const monthMatch = row.date.getFullYear() === targetDate.getFullYear() && 
-                          row.date.getMonth() === targetDate.getMonth();
-
-        if (!dateMatch && !monthMatch) {
+        if (!dateMatch) {
             return false;
         }
 
@@ -286,9 +352,9 @@ export class ExcelProcessor {
             }
         } else if (typeof confirmation === 'string') {
             const trimmedValue = confirmation.trim();
-                if (trimmedValue !== '') {
-                    const confirmationNum = parseInt(trimmedValue);
-                    if (!isNaN(confirmationNum) && (confirmationNum === 1 || confirmationNum === 2 || confirmationNum === 5)) {
+            if (trimmedValue !== '') {
+                const confirmationNum = parseInt(trimmedValue);
+                if (!isNaN(confirmationNum) && (confirmationNum === 1 || confirmationNum === 2 || confirmationNum === 5)) {
                     return false;
                 }
             }
@@ -298,7 +364,7 @@ export class ExcelProcessor {
         if (!row.confirmationDateTime || typeof row.confirmationDateTime !== 'string') {
             return false;
         }
-
+        
         const confirmationStr = row.confirmationDateTime;
 
         // 除外キーワードのチェック
@@ -307,7 +373,7 @@ export class ExcelProcessor {
             confirmationStr.includes('入電予定')) {
             return false;
         }
-
+        
         // 「同時」パターンのチェック
         if (confirmationStr.includes('同時')) {
             return true;
@@ -315,9 +381,9 @@ export class ExcelProcessor {
 
         // 有効な受注パターンのチェック
         if (confirmationStr.includes('単独') || confirmationStr.includes('過量')) {
-            return true;
-        }
-
+        return true;
+    }
+    
         // 69歳以下パターンのチェック
         if (row.contractorAge && typeof row.contractorAge === 'number' && row.contractorAge <= 69) {
             if (confirmationStr.includes('69歳以下')) {
@@ -351,13 +417,8 @@ export class ExcelProcessor {
             }
         }
 
-        // 月単位の場合は、基本的に有効なデータとして扱う
-        if (monthMatch && !dateMatch) {
-            return true;
-        }
-
-            return false;
-        }
+        return false;
+    }
         
     /**
      * 単独契約かどうかを判定
