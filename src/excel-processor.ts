@@ -259,67 +259,83 @@ export class ExcelProcessor {
      * 受注としてカウントするかどうかを判定
      * 動的日付判定に対応
      */
-    public isOrderForDate(row: any, targetDate: Date): boolean {
-        // 基本的なデータ存在チェック
+    private isOrderForDate(row: any, targetDate: Date): boolean {
+        // 基本チェック
         if (!row.date || !targetDate) {
             return false;
         }
-        
-        // 日付が一致するかチェック
-        const rowDate = new Date(row.date);
+
+        // 日付チェック（年月日のみ比較）
+        const rowDateOnly = new Date(row.date.getFullYear(), row.date.getMonth(), row.date.getDate());
         const targetDateOnly = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
-        const rowDateOnly = new Date(rowDate.getFullYear(), rowDate.getMonth(), rowDate.getDate());
-        
-        if (rowDateOnly.getTime() !== targetDateOnly.getTime()) {
+        const dateMatch = rowDateOnly.getTime() === targetDateOnly.getTime();
+
+        if (!dateMatch) {
             return false;
         }
-        
-        // J列（確認区分）のチェック
+
+        // J列条件チェック（1、2、5の場合は除外）
         const confirmation = row.confirmation;
-        if (confirmation === 1 || confirmation === 2 || confirmation === 5) {
+        if (typeof confirmation === 'number') {
+            if (confirmation === 1 || confirmation === 2 || confirmation === 5) {
+                return false;
+            }
+        } else if (typeof confirmation === 'string') {
+            const trimmedValue = confirmation.trim();
+            if (trimmedValue !== '') {
+                const confirmationNum = parseInt(trimmedValue);
+                if (!isNaN(confirmationNum) && (confirmationNum === 1 || confirmationNum === 2 || confirmationNum === 5)) {
+                    return false;
+                }
+            }
+        }
+
+        // K列条件チェック
+        if (!row.confirmationDateTime || typeof row.confirmationDateTime !== 'string') {
             return false;
         }
-        
-        // K列（確認者日時）のチェック
-        const confirmationDateTime = row.confirmationDateTime;
-        if (!confirmationDateTime || typeof confirmationDateTime !== 'string') {
-            return false;
-        }
-        
-        const confirmationStr = String(confirmationDateTime);
-        
+
+        const confirmationStr = row.confirmationDateTime;
+
         // 除外キーワードのチェック
-        const excludeKeywords = ['担当待ち', '直電', '契約時', '契約', '待ち'];
-        if (excludeKeywords.some(keyword => confirmationStr.includes(keyword))) {
+        if (confirmationStr.includes('担当待ち') || confirmationStr.includes('直電') || 
+            confirmationStr.includes('契約時') || confirmationStr.includes('待ち')) {
             return false;
         }
-        
-        // 有効なパターンのチェック
-        // パターン1: "同時"
+
+        // 「同時」パターンのチェック
         if (confirmationStr.includes('同時')) {
             return true;
         }
-        
-        // パターン2: 契約者が69歳以下の場合、空欄または「過量」が含まれる
-        if (row.contractorAge && row.contractorAge <= 69) {
-            if (confirmationStr === '' || confirmationStr.includes('過量')) {
+
+        // 有効な受注パターンのチェック
+        if (confirmationStr.includes('単独契約') || confirmationStr.includes('過量販売')) {
+            return true;
+        }
+
+        // 69歳以下パターンのチェック
+        if (row.contractorAge && typeof row.contractorAge === 'number' && row.contractorAge <= 69) {
+            if (confirmationStr.includes('69歳以下') || confirmationStr.includes('69歳以下')) {
                 return true;
             }
         }
-        
-        // パターン3: 日付+時間+担当者名の形式
-        const dateTimePattern = /(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})\s+.+/;
-        if (dateTimePattern.test(confirmationStr)) {
-            const kColumnDate = this.parseDateFromKColumn(confirmationDateTime);
-            if (kColumnDate) {
-                const kColumnDateOnly = new Date(kColumnDate.getFullYear(), kColumnDate.getMonth(), kColumnDate.getDate());
-                return kColumnDateOnly.getTime() === targetDateOnly.getTime();
+
+        // 日付パターンのチェック
+        const datePattern = confirmationStr.match(/(\d{1,2})\/(\d{1,2})/);
+        if (datePattern) {
+            const kColumnMonth = parseInt(datePattern[1]);
+            const kColumnDay = parseInt(datePattern[2]);
+            const kColumnDateOnly = new Date(targetDate.getFullYear(), kColumnMonth - 1, kColumnDay);
+            const kDateMatch = kColumnDateOnly.getTime() === targetDateOnly.getTime();
+            
+            if (kDateMatch) {
+                return true;
             }
         }
-        
+
         return false;
     }
-    
+        
     /**
      * 単独契約かどうかを判定
      */
@@ -384,7 +400,7 @@ export class ExcelProcessor {
         // 優先度2: K列に時間情報が含まれる場合
         if (confirmationDateTime && typeof confirmationDateTime === 'string') {
             const timeMatch = confirmationDateTime.match(/(\d{1,2}):(\d{1,2})/);
-            if (timeMatch) {
+                if (timeMatch) {
                 const [_, hours, minutes] = timeMatch;
                 const checkTime = new Date(date);
                 checkTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);

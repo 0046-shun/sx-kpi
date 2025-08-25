@@ -2,8 +2,8 @@ import { HolidaySettings, StaffData } from './types.js';
 export declare class ReportGenerator {
     private currentTargetDate;
     private excelProcessor;
-    private holidaySettings;
-    constructor(excelProcessor: any);
+    private calendarManager;
+    constructor(excelProcessor: any, calendarManager: any);
     updateHolidaySettings(settings: HolidaySettings): void;
     private getRegionName;
     private isHolidayConstruction;
@@ -38,7 +38,7 @@ export declare class ReportGenerator {
     private exportStaffRankingCSVs;
     private downloadCSV;
     private createRankingTableHTML;
-    generateStaffData(data: any[]): StaffData[];
+    generateStaffData(data: any[], targetDate: Date): StaffData[];
     exportStaffDataToCSV(staffData: StaffData[]): Promise<void>;
     createStaffDataHTML(staffData: StaffData[]): string;
     createDataConfirmationHTML(data: any[]): string;

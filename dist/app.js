@@ -5,10 +5,11 @@ import { CalendarManager } from './calendar-manager.js';
 export class App {
     constructor() {
         this.currentData = [];
+        this.calendarStates = {};
         this.excelProcessor = new ExcelProcessor();
-        this.reportGenerator = new ReportGenerator(this.excelProcessor);
-        this.dataManager = DataManager.getInstance();
         this.calendarManager = new CalendarManager();
+        this.reportGenerator = new ReportGenerator(this.excelProcessor, this.calendarManager);
+        this.dataManager = DataManager.getInstance();
         this.initializeApp();
     }
     initializeApp() {
@@ -83,14 +84,243 @@ export class App {
         });
     }
     initializeCalendarManager() {
-        // カレンダーマネージャーの初期化
-        this.calendarManager.initializeCalendars();
+        // 公休日・禁止日設定の初期化
+        this.setupHolidaySettingsModal();
+    }
+    setupHolidaySettingsModal() {
+        // モーダル表示時の処理
+        const modal = document.getElementById('holidaySettingsModal');
+        if (modal) {
+            modal.addEventListener('show.bs.modal', () => {
+                this.loadHolidaySettings();
+                this.generateCalendar('publicHolidayCalendar', 'public');
+                this.generateCalendar('prohibitedDayCalendar', 'prohibited');
+            });
+        }
+        // 保存ボタンのイベントリスナー
+        const saveButton = document.getElementById('saveHolidaySettings');
+        if (saveButton) {
+            saveButton.addEventListener('click', () => {
+                this.saveHolidaySettings();
+            });
+        }
+        // 公休日追加ボタンのイベントリスナー
+        const addPublicHolidayButton = document.getElementById('addPublicHoliday');
+        if (addPublicHolidayButton) {
+            addPublicHolidayButton.addEventListener('click', () => {
+                this.addPublicHoliday();
+            });
+        }
+        // 禁止日追加ボタンのイベントリスナー
+        const addProhibitedDayButton = document.getElementById('addProhibitedDay');
+        if (addProhibitedDayButton) {
+            addProhibitedDayButton.addEventListener('click', () => {
+                this.addProhibitedDay();
+            });
+        }
+        // 月移動ボタンのイベントリスナー
+        const prevMonthPublicButton = document.getElementById('prevMonthPublic');
+        const nextMonthPublicButton = document.getElementById('nextMonthPublic');
+        if (prevMonthPublicButton) {
+            prevMonthPublicButton.addEventListener('click', () => {
+                this.changeMonth('public', -1);
+            });
+        }
+        if (nextMonthPublicButton) {
+            nextMonthPublicButton.addEventListener('click', () => {
+                this.changeMonth('public', 1);
+            });
+        }
+        const prevMonthProhibitedButton = document.getElementById('prevMonthProhibited');
+        const nextMonthProhibitedButton = document.getElementById('nextMonthProhibited');
+        if (prevMonthProhibitedButton) {
+            prevMonthProhibitedButton.addEventListener('click', () => {
+                this.changeMonth('prohibited', -1);
+            });
+        }
+        if (nextMonthProhibitedButton) {
+            nextMonthProhibitedButton.addEventListener('click', () => {
+                this.changeMonth('prohibited', 1);
+            });
+        }
+        // 動的に追加される削除ボタンのイベントリスナー（委譲）
+        const modalBody = modal?.querySelector('.modal-body');
+        if (modalBody) {
+            modalBody.addEventListener('click', (e) => {
+                const target = e.target;
+                if (target.classList.contains('holiday-remove')) {
+                    const holidayItem = target.closest('.holiday-item');
+                    if (holidayItem) {
+                        const dateText = holidayItem.querySelector('.holiday-date')?.textContent;
+                        const type = holidayItem.classList.contains('public') ? 'public' : 'prohibited';
+                        if (dateText) {
+                            const date = new Date(dateText);
+                            this.removeHolidayDate(date, type);
+                        }
+                    }
+                }
+            });
+        }
+    }
+    addPublicHoliday() {
+        const dateInput = document.getElementById('publicHolidayDate');
+        if (dateInput && dateInput.value) {
+            const date = new Date(dateInput.value);
+            this.calendarManager.addPublicHoliday(date);
+            this.loadHolidaySettings(); // リストを更新
+        }
+    }
+    addProhibitedDay() {
+        const dateInput = document.getElementById('prohibitedDayDate');
+        if (dateInput && dateInput.value) {
+            const date = new Date(dateInput.value);
+            this.calendarManager.addProhibitedDay(date);
+            this.loadHolidaySettings(); // リストを更新
+        }
+    }
+    removeHolidayDate(date, type) {
+        if (type === 'public') {
+            this.calendarManager.removePublicHoliday(date);
+        }
+        else {
+            this.calendarManager.removeProhibitedDay(date);
+        }
+        this.loadHolidaySettings(); // リストを更新
+    }
+    // 月を変更
+    changeMonth(type, direction) {
+        const containerId = type === 'public' ? 'publicHolidayCalendar' : 'prohibitedDayCalendar';
+        const state = this.calendarStates[containerId];
+        if (state) {
+            state.currentMonth += direction;
+            // 年をまたぐ場合の処理
+            if (state.currentMonth < 0) {
+                state.currentMonth = 11;
+                state.currentYear--;
+            }
+            else if (state.currentMonth > 11) {
+                state.currentMonth = 0;
+                state.currentYear++;
+            }
+            // カレンダーを再生成
+            this.generateCalendar(containerId, type);
+        }
+    }
+    loadHolidaySettings() {
+        // 現在の設定をモーダルに表示
+        const settings = this.calendarManager.getSettings();
+        this.displayHolidaySettings(settings);
+        // 日付入力を現在の日付に設定
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        const publicHolidayDateInput = document.getElementById('publicHolidayDate');
+        const prohibitedDayDateInput = document.getElementById('prohibitedDayDate');
+        if (publicHolidayDateInput) {
+            publicHolidayDateInput.value = todayStr;
+        }
+        if (prohibitedDayDateInput) {
+            prohibitedDayDateInput.value = todayStr;
+        }
+    }
+    saveHolidaySettings() {
+        // モーダルから設定を取得して保存
+        const settings = this.getHolidaySettingsFromModal();
+        this.calendarManager.updateSettings(settings);
+        // ReportGeneratorにも設定を反映
+        this.reportGenerator.updateHolidaySettings(settings);
+        // 設定変更を通知
+        this.notifyHolidaySettingsChanged();
+        // モーダルを閉じる
+        const modal = document.getElementById('holidaySettingsModal');
+        if (modal) {
+            const bootstrapModal = window.bootstrap?.Modal.getInstance(modal);
+            if (bootstrapModal) {
+                bootstrapModal.hide();
+            }
+        }
+    }
+    displayHolidaySettings(settings) {
+        // 公休日リストの表示
+        const publicHolidayList = document.getElementById('publicHolidayList');
+        if (publicHolidayList) {
+            publicHolidayList.innerHTML = settings.publicHolidays.length === 0
+                ? '<p class="text-muted">設定された公休日はありません</p>'
+                : settings.publicHolidays
+                    .sort((a, b) => a.getTime() - b.getTime())
+                    .map(date => `
+                        <div class="holiday-item public">
+                            <span class="holiday-date">${this.formatDate(date)}</span>
+                            <button class="holiday-remove" data-date="${date.toISOString()}" data-type="public">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    `).join('');
+        }
+        // 禁止日リストの表示
+        const prohibitedDayList = document.getElementById('prohibitedDayList');
+        if (prohibitedDayList) {
+            prohibitedDayList.innerHTML = settings.prohibitedDays.length === 0
+                ? '<p class="text-muted">設定された禁止日はありません</p>'
+                : settings.prohibitedDays
+                    .sort((a, b) => a.getTime() - b.getTime())
+                    .map(date => `
+                        <div class="holiday-item prohibited">
+                            <span class="holiday-date">${this.formatDate(date)}</span>
+                            <button class="holiday-remove" data-date="${date.toISOString()}" data-type="prohibited">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    `).join('');
+        }
+    }
+    getHolidaySettingsFromModal() {
+        // 現在の設定を取得
+        return this.calendarManager.getSettings();
+    }
+    notifyHolidaySettingsChanged() {
+        // 設定変更を通知
+        const event = new CustomEvent('holidaySettingsChanged', {
+            detail: this.calendarManager.getSettings()
+        });
+        document.dispatchEvent(event);
+    }
+    formatDate(date) {
+        return date.toLocaleDateString('ja-JP', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
     }
     loadSavedHolidaySettings() {
-        // 保存された設定を読み込み
-        const savedSettings = this.dataManager.getHolidaySettings();
-        this.calendarManager.setHolidaySettings(savedSettings);
-        this.reportGenerator.updateHolidaySettings(savedSettings);
+        // 保存された設定があれば読み込み、なければデフォルト設定を追加
+        const settings = this.calendarManager.getSettings();
+        if (settings.publicHolidays.length === 0 && settings.prohibitedDays.length === 0) {
+            // デフォルト設定を追加（画像の設定に基づく）
+            this.addDefaultHolidaySettings();
+        }
+        // 設定をReportGeneratorに反映
+        this.reportGenerator.updateHolidaySettings(settings);
+    }
+    addDefaultHolidaySettings() {
+        // 画像の設定に基づくデフォルト値を追加
+        const defaultPublicHolidays = [
+            new Date(2025, 7, 24), // 8月24日
+            new Date(2025, 7, 25), // 8月25日
+            new Date(2025, 7, 31) // 8月31日
+        ];
+        const defaultProhibitedDays = [
+            new Date(2025, 7, 14), // 8月14日
+            new Date(2025, 7, 15), // 8月15日
+            new Date(2025, 7, 16), // 8月16日
+            new Date(2025, 8, 1) // 9月1日
+        ];
+        // デフォルト設定を追加
+        defaultPublicHolidays.forEach(date => {
+            this.calendarManager.addPublicHoliday(date);
+        });
+        defaultProhibitedDays.forEach(date => {
+            this.calendarManager.addProhibitedDay(date);
+        });
     }
     openHolidaySettings() {
         // モーダルを開く
@@ -220,7 +450,22 @@ export class App {
             targetData = monthlyData;
         }
         if (targetData && targetData.length > 0) {
-            const staffData = this.reportGenerator.generateStaffData(targetData);
+            // 月報の場合はその月の最初の日、そうでなければ現在の日付を使用
+            let targetDate;
+            if (monthlyData && monthlyData.length > 0) {
+                const reportMonthInput = document.getElementById('reportMonth');
+                if (reportMonthInput && reportMonthInput.value) {
+                    const [year, month] = reportMonthInput.value.split('-').map(Number);
+                    targetDate = new Date(year, month - 1, 1);
+                }
+                else {
+                    targetDate = new Date();
+                }
+            }
+            else {
+                targetDate = new Date();
+            }
+            const staffData = this.reportGenerator.generateStaffData(targetData, targetDate);
             const staffContainer = document.getElementById('staffDataContent');
             if (staffContainer) {
                 // 月情報を表示するヘッダーを追加
@@ -287,7 +532,22 @@ export class App {
                     // 月報データが存在する場合は、その月のデータを使用
                     const monthlyData = this.getCurrentMonthlyData();
                     const targetData = monthlyData && monthlyData.length > 0 ? monthlyData : currentData;
-                    const staffData = this.reportGenerator.generateStaffData(targetData);
+                    // 月報の場合はその月の最初の日、そうでなければ現在の日付を使用
+                    let targetDate;
+                    if (monthlyData && monthlyData.length > 0) {
+                        const reportMonthInput = document.getElementById('reportMonth');
+                        if (reportMonthInput && reportMonthInput.value) {
+                            const [year, month] = reportMonthInput.value.split('-').map(Number);
+                            targetDate = new Date(year, month - 1, 1);
+                        }
+                        else {
+                            targetDate = new Date();
+                        }
+                    }
+                    else {
+                        targetDate = new Date();
+                    }
+                    const staffData = this.reportGenerator.generateStaffData(targetData, targetDate);
                     await this.reportGenerator.exportStaffDataToCSV(staffData);
                     this.showMessage('担当別データのCSV出力が完了しました。', 'success');
                 }
@@ -433,6 +693,175 @@ export class App {
             const month = String(today.getMonth() + 1).padStart(2, '0');
             reportMonthInput.value = `${year}-${month}`;
         }
+    }
+    // カレンダー生成
+    generateCalendar(containerId, type) {
+        const container = document.getElementById(containerId);
+        if (!container)
+            return;
+        const currentDate = new Date();
+        const currentMonth = currentDate.getMonth();
+        const currentYear = currentDate.getFullYear();
+        // カレンダーの状態を保存
+        if (!this.calendarStates) {
+            this.calendarStates = {};
+        }
+        if (!this.calendarStates[containerId]) {
+            this.calendarStates[containerId] = {
+                currentMonth: currentMonth,
+                currentYear: currentYear,
+                selectedDates: new Set()
+            };
+        }
+        const state = this.calendarStates[containerId];
+        const month = state.currentMonth;
+        const year = state.currentYear;
+        // カレンダーHTMLを生成
+        const calendarHTML = this.createCalendarHTML(year, month, type, state.selectedDates);
+        container.innerHTML = calendarHTML;
+        // 追加ボタンをカレンダーグリッドの外側に配置
+        const addButtonHTML = this.createAddButtonHTML(type, state.selectedDates);
+        if (addButtonHTML) {
+            // 既存のボタンがあれば削除
+            const existingButton = container.parentElement?.querySelector(`#addSelectedDates_${type}`);
+            if (existingButton) {
+                existingButton.remove();
+            }
+            // カレンダーグリッドの下にボタンを挿入
+            const buttonContainer = document.createElement('div');
+            buttonContainer.innerHTML = addButtonHTML;
+            container.parentElement?.insertBefore(buttonContainer, container.nextSibling);
+        }
+        // 日付クリックイベントを設定
+        const dayElements = container.querySelectorAll('.day[data-date]');
+        dayElements.forEach(dayElement => {
+            dayElement.addEventListener('click', (e) => {
+                const target = e.target;
+                const dateStr = target.dataset.date;
+                if (dateStr) {
+                    this.toggleDateSelection(containerId, dateStr, type);
+                }
+            });
+        });
+        // 追加ボタンのイベントリスナーを設定
+        const addButton = container.parentElement?.querySelector(`#addSelectedDates_${type}`);
+        if (addButton) {
+            addButton.addEventListener('click', () => {
+                this.addSelectedDates(containerId, type);
+            });
+        }
+    }
+    // カレンダーHTML生成
+    createCalendarHTML(year, month, type, selectedDates) {
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const startDate = new Date(firstDay);
+        startDate.setDate(startDate.getDate() - firstDay.getDay());
+        const settings = this.calendarManager.getSettings();
+        const holidayDates = type === 'public' ? settings.publicHolidays : settings.prohibitedDays;
+        let html = '';
+        const today = new Date();
+        let currentDate = new Date(startDate);
+        // 曜日ヘッダー行（日曜日始まり）
+        html += '<div class="calendar-week">';
+        html += '<div class="day weekday">日</div>';
+        html += '<div class="day weekday">月</div>';
+        html += '<div class="day weekday">火</div>';
+        html += '<div class="day weekday">水</div>';
+        html += '<div class="day weekday">木</div>';
+        html += '<div class="day weekday">金</div>';
+        html += '<div class="day weekday">土</div>';
+        html += '</div>';
+        // 日付行を生成
+        for (let week = 0; week < 6; week++) {
+            html += '<div class="calendar-week">';
+            for (let day = 0; day < 7; day++) {
+                const dateString = currentDate.toISOString().split('T')[0];
+                const isCurrentMonth = currentDate.getMonth() === month;
+                const isToday = this.isSameDate(currentDate, today);
+                const isSelected = selectedDates.has(dateString);
+                const isHoliday = holidayDates.some(h => this.isSameDate(h, currentDate));
+                let classes = 'day';
+                if (!isCurrentMonth)
+                    classes += ' other-month';
+                if (isToday)
+                    classes += ' today';
+                if (isSelected)
+                    classes += ' selected';
+                if (isHoliday) {
+                    classes += type === 'public' ? ' public' : ' prohibited';
+                }
+                html += `<div class="${classes}" data-date="${dateString}">${currentDate.getDate()}</div>`;
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            html += '</div>';
+        }
+        return html;
+    }
+    // 選択された日付の追加ボタンを生成（カレンダーグリッドの外側）
+    createAddButtonHTML(type, selectedDates) {
+        if (selectedDates.size === 0)
+            return '';
+        const buttonColor = type === 'public' ? 'success' : 'danger';
+        return `
+            <div class="mt-3 text-center">
+                <button class="btn btn-${buttonColor} btn-sm" id="addSelectedDates_${type}">
+                    <i class="fas fa-plus me-1"></i>選択された${selectedDates.size}日を追加
+                </button>
+            </div>
+        `;
+    }
+    // 日付選択の切り替え
+    toggleDateSelection(containerId, dateStr, type) {
+        const state = this.calendarStates[containerId];
+        if (!state)
+            return;
+        if (state.selectedDates.has(dateStr)) {
+            state.selectedDates.delete(dateStr);
+        }
+        else {
+            state.selectedDates.add(dateStr);
+        }
+        // カレンダーを再生成
+        this.generateCalendar(containerId, type);
+    }
+    // 選択された日付を一括追加
+    addSelectedDates(containerId, type) {
+        const settings = this.calendarManager.getSettings();
+        const state = this.calendarStates[containerId];
+        if (!state)
+            return;
+        state.selectedDates.forEach(dateStr => {
+            const date = new Date(dateStr);
+            if (type === 'public') {
+                if (!settings.publicHolidays.some(d => this.isSameDate(d, date))) {
+                    settings.publicHolidays.push(date);
+                }
+            }
+            else {
+                if (!settings.prohibitedDays.some(d => this.isSameDate(d, date))) {
+                    settings.prohibitedDays.push(date);
+                }
+            }
+        });
+        // 設定を保存
+        this.calendarManager.updateSettings(settings);
+        // 表示を更新
+        this.displayHolidaySettings(settings);
+        // 選択状態をクリア
+        if (this.calendarStates) {
+            if (this.calendarStates[containerId]) {
+                this.calendarStates[containerId].selectedDates.clear();
+            }
+        }
+        // カレンダーを再生成
+        this.generateCalendar(containerId, type);
+    }
+    // 日付比較
+    isSameDate(date1, date2) {
+        return date1.getFullYear() === date2.getFullYear() &&
+            date1.getMonth() === date2.getMonth() &&
+            date1.getDate() === date2.getDate();
     }
 }
 // アプリケーションの初期化

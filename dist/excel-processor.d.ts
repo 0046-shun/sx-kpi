@@ -19,7 +19,7 @@ export declare class ExcelProcessor {
      * 受注としてカウントするかどうかを判定
      * 動的日付判定に対応
      */
-    isOrderForDate(row: any, targetDate: Date): boolean;
+    private isOrderForDate;
     /**
      * 単独契約かどうかを判定
      */

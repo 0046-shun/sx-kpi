@@ -3,18 +3,18 @@ import { HolidaySettings, StaffData } from './types.js';
 export class ReportGenerator {
     private currentTargetDate: Date | null = null;
     private excelProcessor: any;
-    private holidaySettings: HolidaySettings = {
-        publicHolidays: [],
-        prohibitedDays: []
-    };
+    private calendarManager: any;
 
-    constructor(excelProcessor: any) {
+    constructor(excelProcessor: any, calendarManager: any) {
         this.excelProcessor = excelProcessor;
+        this.calendarManager = calendarManager;
     }
     
     // 公休日・禁止日設定を更新
     updateHolidaySettings(settings: HolidaySettings): void {
-        this.holidaySettings = settings;
+        if (this.calendarManager) {
+            this.calendarManager.updateSettings(settings);
+        }
     }
 
     // 地区名を取得
@@ -73,16 +73,18 @@ export class ReportGenerator {
     
     // 公休日かどうかの判定
     private isPublicHoliday(date: Date): boolean {
-        return this.holidaySettings.publicHolidays.some(holiday => 
-            this.isSameDate(date, holiday)
-        );
+        if (this.calendarManager) {
+            return this.calendarManager.isPublicHoliday(date);
+        }
+        return false;
     }
     
     // 禁止日かどうかの判定
     private isProhibitedDay(date: Date): boolean {
-        return this.holidaySettings.prohibitedDays.some(prohibited => 
-            this.isSameDate(date, prohibited)
-        );
+        if (this.calendarManager) {
+            return this.calendarManager.isProhibitedDay(date);
+        }
+        return false;
     }
     
     generateDailyReport(data: any[], date: string): any {
@@ -91,35 +93,55 @@ export class ReportGenerator {
         const targetMonth = targetDate.getMonth();
         const targetDay = targetDate.getDate();
         
+        console.log('日報生成開始 - 対象日:', date);
+        console.log('対象月:', targetMonth + 1, '対象日:', targetDay);
+        console.log('総データ件数:', data.length);
+        
+        // 公休日・禁止日設定のデバッグ情報
+        if (this.calendarManager) {
+            const settings = this.calendarManager.getSettings();
+            console.log('公休日設定:', settings.publicHolidays.map((d: Date) => d.toLocaleDateString()));
+            console.log('禁止日設定:', settings.prohibitedDays.map((d: Date) => d.toLocaleDateString()));
+        } else {
+            console.log('CalendarManagerが初期化されていません');
+        }
+        
+        // 受注日が対象日のデータを取得（公休日・禁止日施工判定用）
         const dailyData = data.filter(row => {
-            // A列の日付チェック
-            let isDateMatch = false;
+            // 日付チェック
+            if (!row.date) {
+                return false;
+            }
             
-            if (row.date && row.date instanceof Date) {
-                const rowMonth = row.date.getMonth();
-                const rowDay = row.date.getDate();
-                if (rowMonth === targetMonth && rowDay === targetDay) {
-                    isDateMatch = true;
+            const rowMonth = row.date.getMonth();
+            const rowDay = row.date.getDate();
+            const targetMonth = targetDate.getMonth();
+            const targetDay = targetDate.getDate();
+            
+            const isDateMatch = rowMonth === targetMonth && rowDay === targetDay;
+            
+            if (!isDateMatch) return false;
+            
+            // K列の文字列マッチングチェック
+            if (row.confirmationDateTime) {
+                const kColumnStr = String(row.confirmationDateTime);
+                const targetDateStr = `${targetMonth + 1}/${targetDay}`;
+                const targetDateStrAlt = `${targetMonth + 1}/${targetDay.toString().padStart(2, '0')}`;
+                
+                if (kColumnStr.includes(targetDateStr) || kColumnStr.includes(targetDateStrAlt)) {
+                    return true;
                 }
             }
             
-            // K列の日付チェック（A列でマッチしない場合）
-            if (!isDateMatch && row.confirmationDateTime) {
+            // K列の日付パターンチェック
+            if (row.confirmationDateTime) {
                 const kColumnStr = String(row.confirmationDateTime);
-                const targetDateStr = `${targetMonth + 1}/${targetDay}`;
-                const targetDateStrAlt = `${targetMonth + 1}月${targetDay}日`;
-                
-                if (kColumnStr.includes(targetDateStr) || kColumnStr.includes(targetDateStrAlt)) {
-                    isDateMatch = true;
-                }
-                
-                // K列に日付+時間の形式で該当日付が含まれるかチェック
-                const kDateMatch = kColumnStr.match(/(\d{1,2})\/(\d{1,2})/);
-                if (kDateMatch) {
-                    const kMonth = parseInt(kDateMatch[1]);
-                    const kDay = parseInt(kDateMatch[2]);
+                const datePattern = kColumnStr.match(/(\d{1,2})\/(\d{1,2})/);
+                if (datePattern) {
+                    const kMonth = parseInt(datePattern[1]);
+                    const kDay = parseInt(datePattern[2]);
                     if (kMonth === targetMonth + 1 && kDay === targetDay) {
-                        isDateMatch = true;
+                        return true;
                     }
                 }
             }
@@ -146,10 +168,16 @@ export class ReportGenerator {
             let isKColumnValid = true;
             if (row.confirmationDateTime) {
                 const kColumnStr = String(row.confirmationDateTime);
+                
+                // 除外キーワードのチェック
                 if (kColumnStr.includes('担当待ち') || kColumnStr.includes('直電') || 
-                    kColumnStr.includes('契約時') || kColumnStr.includes('契約') || 
-                    kColumnStr.includes('待ち')) {
+                    kColumnStr.includes('契約時') || kColumnStr.includes('待ち')) {
                     isKColumnValid = false;
+                }
+                
+                // 有効な受注パターンのチェック
+                if (kColumnStr.includes('単独契約') || kColumnStr.includes('過量販売')) {
+                    isKColumnValid = true;
                 }
             }
             
@@ -158,7 +186,17 @@ export class ReportGenerator {
             return isValid;
         });
         
-
+        console.log('日報対象データ件数:', dailyData.length);
+        
+        // 公休日・禁止日施工のデバッグ情報を出力
+        dailyData.forEach((row, index) => {
+            if (index < 5) { // 最初の5件のみデバッグ出力
+                console.log(`行${index + 1}: 受注日=${row.date?.toLocaleDateString()}, 着工日=${row.startDate?.toLocaleDateString()}, 完工予定日=${row.completionDate?.toLocaleDateString()}`);
+                console.log(`行${index + 1}: 着工日が公休日=${this.isPublicHoliday(row.startDate)}, 完工予定日が公休日=${this.isPublicHoliday(row.completionDate)}`);
+                console.log(`行${index + 1}: 着工日が禁止日=${this.isProhibitedDay(row.startDate)}, 完工予定日が禁止日=${this.isProhibitedDay(row.completionDate)}`);
+                console.log(`行${index + 1}: 公休日施工判定=${this.isHolidayConstruction(row)}, 禁止日施工判定=${this.isProhibitedConstruction(row)}`);
+            }
+        });
         
         const reportData = this.calculateReportData(dailyData, 'daily');
         // 選択された日付情報を追加
@@ -168,10 +206,17 @@ export class ReportGenerator {
     
     generateMonthlyReport(data: any[], month: string): any {
         const [year, monthNum] = month.split('-').map(Number);
+        console.log('月報生成開始 - 対象年月:', year, monthNum);
+        console.log('総データ件数:', data.length);
+        
         const monthlyData = data.filter(row => {
             // 日付チェック
-            if (!row.date) return false;
+            if (!row.date) {
+                return false;
+            }
+            
             const isDateMatch = row.date.getFullYear() === year && row.date.getMonth() === monthNum - 1;
+            
             if (!isDateMatch) return false;
             
             // J列条件チェック（1、2、5の場合は除外）
@@ -196,17 +241,27 @@ export class ReportGenerator {
             let isKColumnValid = true;
             if (row.confirmationDateTime) {
                 const kColumnStr = String(row.confirmationDateTime);
+                
+                // 除外キーワードのチェック
                 if (kColumnStr.includes('担当待ち') || kColumnStr.includes('直電') || 
-                    kColumnStr.includes('契約時') || kColumnStr.includes('契約') || 
-                    kColumnStr.includes('待ち')) {
+                    kColumnStr.includes('契約時') || kColumnStr.includes('待ち')) {
                     isKColumnValid = false;
+                }
+                
+                // 有効な受注パターンのチェック
+                if (kColumnStr.includes('単独契約') || kColumnStr.includes('過量販売')) {
+                    isKColumnValid = true;
                 }
             }
             
-            return isJColumnValid && isKColumnValid;
+            const isValid = isJColumnValid && isKColumnValid;
+            
+            return isValid;
         });
         
         const reportData = this.calculateReportData(monthlyData, 'monthly');
+        reportData.rawData = monthlyData; // 月報データを保存
+        
         // 選択された月情報を追加
         reportData.selectedMonth = month;
         reportData.selectedYear = year;
@@ -219,8 +274,6 @@ export class ReportGenerator {
         reportData.singleContractRanking = this.calculateSingleContractRanking(monthlyData, targetYear, targetMonth);
         reportData.excessiveSalesRanking = this.calculateExcessiveSalesRanking(monthlyData, targetYear, targetMonth);
         reportData.normalAgeStaffRanking = this.calculateNormalAgeStaffRanking(monthlyData, targetYear, targetMonth);
-        
-
         
         return reportData;
     }
@@ -1440,80 +1493,46 @@ export class ReportGenerator {
     }
 
     // 担当別データを生成
-    public generateStaffData(data: any[]): StaffData[] {
-
-        const staffMap = new Map<string, StaffData>();
+    public generateStaffData(data: any[], targetDate: Date): StaffData[] {
+        const staffData: StaffData[] = [];
         
-        // データの詳細を確認
-        let orderCount = 0;
-        let staffNameCount = 0;
-        let validStaffCount = 0;
-        
-        data.forEach((row, index) => {
-            // 動的にisOrderを計算（行の日付を使用）
-            const isOrder = this.isOrderForDate(row, row.date);
-            row.isOrder = isOrder; // 結果を保存
+        data.forEach(row => {
+            const isOrder = this.isOrderForDate(row, targetDate);
             
-            // 受注件数のカウント
-            if (isOrder) {
-                orderCount++;
-            }
-            
-            // 担当者名がある件数のカウント
-            if (row.staffName && row.staffName.trim() !== '') {
-                staffNameCount++;
-            }
-            
-            // 受注かつ担当者名がある件数のカウント
-            if (isOrder && row.staffName && row.staffName.trim() !== '') {
-                validStaffCount++;
+            if (row.staffName && row.regionNumber && row.departmentNumber) {
+                const existingStaff = staffData.find(s => 
+                    s.regionNo === row.regionNumber && 
+                    s.departmentNo === row.departmentNumber && 
+                    s.staffName === row.staffName
+                );
                 
-                if (index < 5) { // 最初の5件のデータをログ出力
-                    // デバッグ情報（必要に応じて）
-                }
-                
-                const key = `${row.regionNumber || ''}-${row.departmentNumber || ''}-${row.staffName}`;
-                
-                if (!staffMap.has(key)) {
-                    staffMap.set(key, {
-                        regionNo: row.regionNumber || '',
-                        departmentNo: row.departmentNumber || '',
-                        staffName: row.staffName,
-                        totalOrders: 0,
-                        normalAgeOrders: 0,
-                        elderlyOrders: 0,
-                        singleOrders: 0,
-                        excessiveOrders: 0,
-                        overtimeOrders: 0
-                    });
-                }
-                
-                const staff = staffMap.get(key)!;
-                staff.totalOrders++;
-                
-                // 年齢による分類（contractorAgeを使用）
-                const age = row.contractorAge || row.age;
-                if (age && age >= 70) {
-                    staff.elderlyOrders++;
+                if (existingStaff) {
+                    // 既存の担当者データを更新
+                    if (isOrder) existingStaff.totalOrders++;
+                    if (row.contractorAge && row.contractorAge <= 69) existingStaff.normalAgeOrders++;
+                    if (row.contractorAge && row.contractorAge >= 70) existingStaff.elderlyOrders++;
+                    if (this.excelProcessor.isSingle(row)) existingStaff.singleOrders++;
+                    if (this.excelProcessor.isExcessive(row)) existingStaff.excessiveOrders++;
+                    if (this.excelProcessor.isOvertime(row)) existingStaff.overtimeOrders++;
                 } else {
-                    staff.normalAgeOrders++;
+                    // 新しい担当者データを作成
+                    const newStaff: StaffData = {
+                        regionNo: row.regionNumber,
+                        departmentNo: row.departmentNumber,
+                        staffName: row.staffName,
+                        totalOrders: isOrder ? 1 : 0,
+                        normalAgeOrders: (row.contractorAge && row.contractorAge <= 69) ? 1 : 0,
+                        elderlyOrders: (row.contractorAge && row.contractorAge >= 70) ? 1 : 0,
+                        singleOrders: this.excelProcessor.isSingle(row) ? 1 : 0,
+                        excessiveOrders: this.excelProcessor.isExcessive(row) ? 1 : 0,
+                        overtimeOrders: this.excelProcessor.isOvertime(row) ? 1 : 0
+                    };
+                    staffData.push(newStaff);
                 }
-                
-                // その他の分類
-                if (this.excelProcessor.isSingle(row.confirmationDateTime)) staff.singleOrders++;
-                if (this.excelProcessor.isExcessive(row.confirmationDateTime)) staff.excessiveOrders++;
-                if (this.excelProcessor.isOvertime(row.date, row.time, row.confirmation, row.confirmationDateTime, row.contractorAge)) staff.overtimeOrders++;
             }
         });
         
-
-        
-
-        
-        // 件数降順でソート
-        const result = Array.from(staffMap.values()).sort((a, b) => b.totalOrders - a.totalOrders);
-
-        return result;
+        return staffData;
     }
 
     // 担当別データのCSV出力

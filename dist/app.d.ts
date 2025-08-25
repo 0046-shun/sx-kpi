@@ -4,11 +4,24 @@ export declare class App {
     private dataManager;
     private calendarManager;
     private currentData;
+    private calendarStates;
     constructor();
     private initializeApp;
     private setupEventListeners;
     private initializeCalendarManager;
+    private setupHolidaySettingsModal;
+    private addPublicHoliday;
+    private addProhibitedDay;
+    private removeHolidayDate;
+    private changeMonth;
+    private loadHolidaySettings;
+    private saveHolidaySettings;
+    private displayHolidaySettings;
+    private getHolidaySettingsFromModal;
+    private notifyHolidaySettingsChanged;
+    private formatDate;
     private loadSavedHolidaySettings;
+    private addDefaultHolidaySettings;
     private openHolidaySettings;
     private handleHolidaySettingsChanged;
     private refreshCurrentReport;
@@ -25,4 +38,10 @@ export declare class App {
     private setupExportButtons;
     private showMessage;
     private setDefaultDate;
+    private generateCalendar;
+    private createCalendarHTML;
+    private createAddButtonHTML;
+    private toggleDateSelection;
+    private addSelectedDates;
+    private isSameDate;
 }
