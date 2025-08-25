@@ -35,6 +35,16 @@ export declare class App {
     private updateStaffData;
     private createMonthHeaderForStaffData;
     private updateDataConfirmation;
+    private setupStaffDataSearchAndSort;
+    private setupStaffDataSearch;
+    private setupStaffDataSort;
+    private executeStaffDataSearch;
+    private matchesOrderCondition;
+    private updateSearchResultInfo;
+    private clearStaffDataSearch;
+    private executeStaffDataSort;
+    private getSortValue;
+    private compareValues;
     private setupStaffDataExportButton;
     private getCurrentMonthlyData;
     private setupDataFilters;

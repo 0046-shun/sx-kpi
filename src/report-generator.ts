@@ -97,14 +97,7 @@ export class ReportGenerator {
         console.log('対象月:', targetMonth + 1, '対象日:', targetDay);
         console.log('総データ件数:', data.length);
         
-        // 公休日・禁止日設定のデバッグ情報
-        if (this.calendarManager) {
-            const settings = this.calendarManager.getSettings();
-            console.log('公休日設定:', settings.publicHolidays.map((d: Date) => d.toLocaleDateString()));
-            console.log('禁止日設定:', settings.prohibitedDays.map((d: Date) => d.toLocaleDateString()));
-        } else {
-            console.log('CalendarManagerが初期化されていません');
-        }
+
         
         // 受注日が対象日のデータを取得（公休日・禁止日施工判定用）
         const dailyData = data.filter(row => {
@@ -188,15 +181,7 @@ export class ReportGenerator {
         
         console.log('日報対象データ件数:', dailyData.length);
         
-        // 公休日・禁止日施工のデバッグ情報を出力
-        dailyData.forEach((row, index) => {
-            if (index < 5) { // 最初の5件のみデバッグ出力
-                console.log(`行${index + 1}: 受注日=${row.date?.toLocaleDateString()}, 着工日=${row.startDate?.toLocaleDateString()}, 完工予定日=${row.completionDate?.toLocaleDateString()}`);
-                console.log(`行${index + 1}: 着工日が公休日=${this.isPublicHoliday(row.startDate)}, 完工予定日が公休日=${this.isPublicHoliday(row.completionDate)}`);
-                console.log(`行${index + 1}: 着工日が禁止日=${this.isProhibitedDay(row.startDate)}, 完工予定日が禁止日=${this.isProhibitedDay(row.completionDate)}`);
-                console.log(`行${index + 1}: 公休日施工判定=${this.isHolidayConstruction(row)}, 禁止日施工判定=${this.isProhibitedConstruction(row)}`);
-            }
-        });
+
         
         const reportData = this.calculateReportData(dailyData, 'daily');
         // 選択された日付情報を追加
@@ -1496,33 +1481,68 @@ export class ReportGenerator {
     public generateStaffData(data: any[], targetDate: Date): StaffData[] {
         const staffData: StaffData[] = [];
         
-        data.forEach(row => {
-            const isOrder = this.isOrderForDate(row, targetDate);
+        console.log('担当別データ生成開始 - 対象日付:', targetDate.toISOString().split('T')[0]);
+        console.log('総データ件数:', data.length);
+        
+        data.forEach((row, index) => {
+            // デバッグ用ログ（最初の5行のみ）
+            if (index < 5) {
+                console.log(`行${index + 1}:`, {
+                    date: row.date,
+                    regionNumber: row.regionNumber,
+                    departmentNumber: row.departmentNumber,
+                    staffName: row.staffName,
+                    contractorAge: row.contractorAge,
+                    confirmationDateTime: row.confirmationDateTime,
+                    confirmation: row.confirmation
+                });
+            }
             
-            if (row.staffName && row.regionNumber && row.departmentNumber) {
+            // 担当者名の正規化（括弧内の情報を除去）
+            const normalizedStaffName = this.normalizeStaffName(row.staffName);
+            
+            if (normalizedStaffName && row.regionNumber && row.departmentNumber) {
                 const existingStaff = staffData.find(s => 
                     s.regionNo === row.regionNumber && 
                     s.departmentNo === row.departmentNumber && 
-                    s.staffName === row.staffName
+                    s.staffName === normalizedStaffName
                 );
                 
                 if (existingStaff) {
                     // 既存の担当者データを更新
-                    if (isOrder) existingStaff.totalOrders++;
-                    if (row.contractorAge && row.contractorAge <= 69) existingStaff.normalAgeOrders++;
-                    if (row.contractorAge && row.contractorAge >= 70) existingStaff.elderlyOrders++;
-                    if (this.excelProcessor.isSingle(row)) existingStaff.singleOrders++;
-                    if (this.excelProcessor.isExcessive(row)) existingStaff.excessiveOrders++;
-                    if (this.excelProcessor.isOvertime(row)) existingStaff.overtimeOrders++;
+                    // 受注件数は日付が一致する場合のみカウント
+                    if (this.isOrderForDate(row, targetDate)) {
+                        existingStaff.totalOrders++;
+                    }
+                    
+                    // 年齢別件数は契約者年齢がある場合のみカウント
+                    if (row.contractorAge && typeof row.contractorAge === 'number') {
+                        if (row.contractorAge <= 69) {
+                            existingStaff.normalAgeOrders++;
+                        } else if (row.contractorAge >= 70) {
+                            existingStaff.elderlyOrders++;
+                        }
+                    }
+                    
+                    // 単独・過量・時間外は該当する場合のみカウント
+                    if (this.excelProcessor.isSingle(row)) {
+                        existingStaff.singleOrders++;
+                    }
+                    if (this.excelProcessor.isExcessive(row)) {
+                        existingStaff.excessiveOrders++;
+                    }
+                    if (this.excelProcessor.isOvertime(row)) {
+                        existingStaff.overtimeOrders++;
+                    }
                 } else {
                     // 新しい担当者データを作成
                     const newStaff: StaffData = {
                         regionNo: row.regionNumber,
                         departmentNo: row.departmentNumber,
-                        staffName: row.staffName,
-                        totalOrders: isOrder ? 1 : 0,
-                        normalAgeOrders: (row.contractorAge && row.contractorAge <= 69) ? 1 : 0,
-                        elderlyOrders: (row.contractorAge && row.contractorAge >= 70) ? 1 : 0,
+                        staffName: normalizedStaffName,
+                        totalOrders: this.isOrderForDate(row, targetDate) ? 1 : 0,
+                        normalAgeOrders: (row.contractorAge && typeof row.contractorAge === 'number' && row.contractorAge <= 69) ? 1 : 0,
+                        elderlyOrders: (row.contractorAge && typeof row.contractorAge === 'number' && row.contractorAge >= 70) ? 1 : 0,
                         singleOrders: this.excelProcessor.isSingle(row) ? 1 : 0,
                         excessiveOrders: this.excelProcessor.isExcessive(row) ? 1 : 0,
                         overtimeOrders: this.excelProcessor.isOvertime(row) ? 1 : 0
@@ -1532,7 +1552,36 @@ export class ReportGenerator {
             }
         });
         
+        // デバッグ用ログ
+        console.log('担当別データ集計結果:', {
+            totalStaff: staffData.length,
+            totalOrders: staffData.reduce((sum, staff) => sum + staff.totalOrders, 0),
+            totalElderly: staffData.reduce((sum, staff) => sum + staff.elderlyOrders, 0),
+            totalSingle: staffData.reduce((sum, staff) => sum + staff.singleOrders, 0),
+            totalExcessive: staffData.reduce((sum, staff) => sum + staff.excessiveOrders, 0),
+            totalOvertime: staffData.reduce((sum, staff) => sum + staff.overtimeOrders, 0)
+        });
+        
         return staffData;
+    }
+    
+    // 担当者名を正規化するヘルパーメソッド
+    private normalizeStaffName(staffName: any): string {
+        if (!staffName || typeof staffName !== 'string') {
+            return '';
+        }
+        
+        const trimmedName = staffName.trim();
+        if (trimmedName === '') {
+            return '';
+        }
+        
+        // 括弧（半角・全角）で囲まれた部分を除去
+        // 例: "山下(弓弦)" → "山下"
+        const normalizedName = trimmedName.replace(/[\(（].*?[\)）]/g, '');
+        
+        // 前後の空白を除去して返す
+        return normalizedName.trim();
     }
 
     // 担当別データのCSV出力
@@ -1578,7 +1627,7 @@ export class ReportGenerator {
         }
 
         const tableRows = staffData.map(staff => `
-            <tr>
+            <tr data-region="${staff.regionNo || ''}" data-department="${staff.departmentNo || ''}" data-staff="${staff.staffName}" data-orders="${staff.totalOrders}" data-normal-age="${staff.normalAgeOrders}" data-elderly="${staff.elderlyOrders}" data-single="${staff.singleOrders}" data-excessive="${staff.excessiveOrders}" data-overtime="${staff.overtimeOrders}">
                 <td>${staff.regionNo || ''}</td>
                 <td>${staff.departmentNo || ''}</td>
                 <td>${staff.staffName}</td>
@@ -1592,19 +1641,88 @@ export class ReportGenerator {
         `).join('');
 
         return `
+            <!-- 検索フォーム -->
+            <div class="search-form mb-3">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="staffNameSearch" class="form-label">担当名</label>
+                        <input type="text" class="form-control" id="staffNameSearch" placeholder="担当名を入力">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="regionSearch" class="form-label">地区</label>
+                        <input type="text" class="form-control" id="regionSearch" placeholder="地区番号">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="departmentSearch" class="form-label">所属</label>
+                        <input type="text" class="form-control" id="departmentSearch" placeholder="所属番号">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="ordersSearch" class="form-label">受注件数</label>
+                        <select class="form-select" id="ordersSearch">
+                            <option value="">すべて</option>
+                            <option value="0">0件</option>
+                            <option value="5">5件以上</option>
+                            <option value="10">10件以上</option>
+                            <option value="15">15件以上</option>
+                            <option value="20">20件以上</option>
+                            <option value="30">30件以上</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="elderlySearch" class="form-label">70歳以上</label>
+                        <select class="form-select" id="elderlySearch">
+                            <option value="">すべて</option>
+                            <option value="0">0件</option>
+                            <option value="1">1件以上</option>
+                            <option value="3">3件以上</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-12">
+                        <button type="button" class="btn btn-primary btn-sm me-2" id="searchExecute">
+                            <i class="fas fa-search me-1"></i>検索実行
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm me-2" id="searchClear">
+                            <i class="fas fa-times me-1"></i>条件クリア
+                        </button>
+                        <span class="text-muted" id="searchResultInfo">検索結果: ${staffData.length}件 / 総件数: ${staffData.length}件</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- データテーブル -->
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
+                <table class="table table-striped table-hover" id="staffDataTable">
                     <thead class="table-dark">
                         <tr>
-                            <th>地区</th>
-                            <th>所属</th>
-                            <th>担当名</th>
-                            <th>受注件数</th>
-                            <th>契約者69歳以下件数</th>
-                            <th>70歳以上件数</th>
-                            <th>単独件数</th>
-                            <th>過量件数</th>
-                            <th>時間外件数</th>
+                            <th class="sortable" data-sort="region">
+                                地区
+                            </th>
+                            <th class="sortable" data-sort="department">
+                                所属
+                            </th>
+                            <th class="sortable" data-sort="staff">
+                                担当名
+                            </th>
+                            <th class="sortable" data-sort="orders">
+                                受注件数
+                            </th>
+                            <th class="sortable" data-sort="normalAge">
+                                契約者69歳以下件数
+                            </th>
+                            <th class="sortable" data-sort="elderly">
+                                70歳以上件数
+                            </th>
+                            <th class="sortable" data-sort="single">
+                                単独件数
+                            </th>
+                            <th class="sortable" data-sort="excessive">
+                                過量件数
+                            </th>
+                            <th class="sortable" data-sort="overtime">
+                                時間外件数
+                            </th>
                         </tr>
                     </thead>
                     <tbody>

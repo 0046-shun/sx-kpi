@@ -23,16 +23,16 @@ export declare class ExcelProcessor {
     /**
      * 単独契約かどうかを判定
      */
-    isSingle(confirmation: any): boolean;
+    isSingle(row: any): boolean;
     /**
      * 過量販売かどうかを判定
      */
-    isExcessive(confirmation: any): boolean;
+    isExcessive(row: any): boolean;
     /**
      * 時間外対応かどうかを判定
      * 18:30以降の対応を時間外とする
      */
-    isOvertime(date: any, time: any, confirmation: any, confirmationDateTime: any, age: any, targetDate?: Date): boolean;
+    isOvertime(row: any): boolean;
     /**
      * 現在の日付フィルターを取得（動的）
      */

@@ -224,7 +224,10 @@ export class ExcelProcessor {
         const rowDateOnly = new Date(row.date.getFullYear(), row.date.getMonth(), row.date.getDate());
         const targetDateOnly = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
         const dateMatch = rowDateOnly.getTime() === targetDateOnly.getTime();
-        if (!dateMatch) {
+        // 月単位での判定も追加（月報の場合）
+        const monthMatch = row.date.getFullYear() === targetDate.getFullYear() &&
+            row.date.getMonth() === targetDate.getMonth();
+        if (!dateMatch && !monthMatch) {
             return false;
         }
         // J列条件チェック（1、2、5の場合は除外）
@@ -243,14 +246,15 @@ export class ExcelProcessor {
                 }
             }
         }
-        // K列条件チェック
+        // K列条件チェック（受注パターン）
         if (!row.confirmationDateTime || typeof row.confirmationDateTime !== 'string') {
             return false;
         }
         const confirmationStr = row.confirmationDateTime;
         // 除外キーワードのチェック
         if (confirmationStr.includes('担当待ち') || confirmationStr.includes('直電') ||
-            confirmationStr.includes('契約時') || confirmationStr.includes('待ち')) {
+            confirmationStr.includes('契約時') || confirmationStr.includes('待ち') ||
+            confirmationStr.includes('入電予定')) {
             return false;
         }
         // 「同時」パターンのチェック
@@ -258,47 +262,62 @@ export class ExcelProcessor {
             return true;
         }
         // 有効な受注パターンのチェック
-        if (confirmationStr.includes('単独契約') || confirmationStr.includes('過量販売')) {
+        if (confirmationStr.includes('単独') || confirmationStr.includes('過量')) {
             return true;
         }
         // 69歳以下パターンのチェック
         if (row.contractorAge && typeof row.contractorAge === 'number' && row.contractorAge <= 69) {
-            if (confirmationStr.includes('69歳以下') || confirmationStr.includes('69歳以下')) {
+            if (confirmationStr.includes('69歳以下')) {
                 return true;
             }
         }
-        // 日付パターンのチェック
-        const datePattern = confirmationStr.match(/(\d{1,2})\/(\d{1,2})/);
-        if (datePattern) {
-            const kColumnMonth = parseInt(datePattern[1]);
-            const kColumnDay = parseInt(datePattern[2]);
+        // 日付パターンのチェック（8/25 11:55 大城 のような形式）
+        const dateTimePattern = confirmationStr.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
+        if (dateTimePattern) {
+            const kColumnMonth = parseInt(dateTimePattern[1]);
+            const kColumnDay = parseInt(dateTimePattern[2]);
             const kColumnDateOnly = new Date(targetDate.getFullYear(), kColumnMonth - 1, kColumnDay);
             const kDateMatch = kColumnDateOnly.getTime() === targetDateOnly.getTime();
             if (kDateMatch) {
                 return true;
             }
         }
+        // 単純な日付パターンのチェック（8/25 のような形式）
+        const simpleDatePattern = confirmationStr.match(/(\d{1,2})\/(\d{1,2})/);
+        if (simpleDatePattern) {
+            const kColumnMonth = parseInt(simpleDatePattern[1]);
+            const kColumnDay = parseInt(simpleDatePattern[2]);
+            const kColumnDateOnly = new Date(targetDate.getFullYear(), kColumnMonth - 1, kColumnDay);
+            const kDateMatch = kColumnDateOnly.getTime() === targetDateOnly.getTime();
+            if (kDateMatch) {
+                return true;
+            }
+        }
+        // 月単位の場合は、基本的に有効なデータとして扱う
+        if (monthMatch && !dateMatch) {
+            return true;
+        }
         return false;
     }
     /**
      * 単独契約かどうかを判定
      */
-    isSingle(confirmation) {
-        if (!confirmation || typeof confirmation !== 'string') {
+    isSingle(row) {
+        if (!row.confirmationDateTime || typeof row.confirmationDateTime !== 'string') {
             return false;
         }
-        const confirmationStr = String(confirmation);
+        const confirmationStr = String(row.confirmationDateTime);
         const result = confirmationStr.includes('単独');
         return result;
     }
     /**
      * 過量販売かどうかを判定
      */
-    isExcessive(confirmation) {
-        if (!confirmation || typeof confirmation !== 'string') {
+    isExcessive(row) {
+        if (!row.confirmationDateTime || typeof row.confirmationDateTime !== 'string') {
             return false;
         }
-        const confirmationStr = String(confirmation);
+        const confirmationStr = String(row.confirmationDateTime);
         const result = confirmationStr.includes('過量');
         return result;
     }
@@ -306,61 +325,45 @@ export class ExcelProcessor {
      * 時間外対応かどうかを判定
      * 18:30以降の対応を時間外とする
      */
-    isOvertime(date, time, confirmation, confirmationDateTime, age, targetDate) {
+    isOvertime(row) {
         // 基本的なデータ存在チェック
-        if (!date) {
+        if (!row.date || !row.time) {
             return false;
         }
         // 受注条件を満たすかチェック
-        if (targetDate && !this.isOrderForDate({ date, time, confirmation, confirmationDateTime, contractorAge: age }, targetDate)) {
+        if (!this.isOrderForDate(row, row.date)) {
             return false;
         }
         // 時間外判定の優先順位
         // 優先度1: K列が「同時」の場合
-        if (confirmationDateTime && typeof confirmationDateTime === 'string' && confirmationDateTime.includes('同時')) {
-            if (date && time) {
-                const checkTime = new Date(date);
-                const [hours, minutes] = time.split(':').map(Number);
+        if (row.confirmationDateTime && typeof row.confirmationDateTime === 'string' && row.confirmationDateTime.includes('同時')) {
+            if (row.date && row.time) {
+                const checkTime = new Date(row.date);
+                const [hours, minutes] = row.time.split(':').map(Number);
                 checkTime.setHours(hours, minutes, 0, 0);
-                const overtimeThreshold = new Date(date);
+                const overtimeThreshold = new Date(row.date);
                 overtimeThreshold.setHours(18, 30, 0, 0);
                 const result = checkTime >= overtimeThreshold;
                 return result;
             }
         }
         // 優先度2: K列に時間情報が含まれる場合
-        if (confirmationDateTime && typeof confirmationDateTime === 'string') {
-            const timeMatch = confirmationDateTime.match(/(\d{1,2}):(\d{1,2})/);
+        if (row.confirmationDateTime && typeof row.confirmationDateTime === 'string') {
+            const timeMatch = row.confirmationDateTime.match(/(\d{1,2}):(\d{1,2})/);
             if (timeMatch) {
-                const [_, hours, minutes] = timeMatch;
-                const checkTime = new Date(date);
-                checkTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-                const overtimeThreshold = new Date(date);
-                overtimeThreshold.setHours(18, 30, 0, 0);
-                const result = checkTime >= overtimeThreshold;
-                return result;
-            }
-            // 全角コロンも対応
-            const fullTimeMatch = confirmationDateTime.match(/(\d{1,2})：(\d{1,2})/);
-            if (fullTimeMatch) {
-                const [_, hours, minutes] = fullTimeMatch;
-                const checkTime = new Date(date);
-                checkTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-                const overtimeThreshold = new Date(date);
-                overtimeThreshold.setHours(18, 30, 0, 0);
-                const result = checkTime >= overtimeThreshold;
-                return result;
+                const hours = parseInt(timeMatch[1]);
+                const minutes = parseInt(timeMatch[2]);
+                if (hours > 18 || (hours === 18 && minutes >= 30)) {
+                    return true;
+                }
             }
         }
-        // 優先度3: その他の場合（A列+B列の時間）
-        if (date && time) {
-            const checkTime = new Date(date);
-            const [hours, minutes] = time.split(':').map(Number);
-            checkTime.setHours(hours, minutes, 0, 0);
-            const overtimeThreshold = new Date(date);
-            overtimeThreshold.setHours(18, 30, 0, 0);
-            const result = checkTime >= overtimeThreshold;
-            return result;
+        // 優先度3: 標準時間フィールドを使用
+        if (row.time) {
+            const [hours, minutes] = row.time.split(':').map(Number);
+            if (hours > 18 || (hours === 18 && minutes >= 30)) {
+                return true;
+            }
         }
         return false;
     }

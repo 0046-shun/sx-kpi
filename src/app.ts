@@ -704,7 +704,9 @@ export class App {
                 // 月情報を表示するヘッダーを追加
                 const monthHeader = this.createMonthHeaderForStaffData();
                 staffContainer.innerHTML = monthHeader + this.reportGenerator.createStaffDataHTML(staffData);
-        
+                
+                // 検索・ソート機能を設定
+                this.setupStaffDataSearchAndSort();
             } else {
                 console.error('staffDataContent要素が見つかりません');
             }
@@ -754,6 +756,242 @@ export class App {
         }
     }
     
+    // 担当別データの検索・ソート機能を設定
+    private setupStaffDataSearchAndSort(): void {
+        // 検索機能の設定
+        this.setupStaffDataSearch();
+        
+        // ソート機能の設定
+        this.setupStaffDataSort();
+    }
+    
+    // 担当別データの検索機能を設定
+    private setupStaffDataSearch(): void {
+        const searchExecute = document.getElementById('searchExecute');
+        const searchClear = document.getElementById('searchClear');
+        const staffNameSearch = document.getElementById('staffNameSearch') as HTMLInputElement;
+        const regionSearch = document.getElementById('regionSearch') as HTMLInputElement;
+        const departmentSearch = document.getElementById('departmentSearch') as HTMLInputElement;
+        const ordersSearch = document.getElementById('ordersSearch') as HTMLSelectElement;
+        const elderlySearch = document.getElementById('elderlySearch') as HTMLSelectElement;
+        
+        if (searchExecute) {
+            searchExecute.addEventListener('click', () => {
+                this.executeStaffDataSearch();
+            });
+        }
+        
+        if (searchClear) {
+            searchClear.addEventListener('click', () => {
+                this.clearStaffDataSearch();
+            });
+        }
+        
+        // リアルタイム検索（入力と同時に検索実行）
+        [staffNameSearch, regionSearch, departmentSearch, ordersSearch, elderlySearch].forEach(element => {
+            if (element) {
+                element.addEventListener('input', () => {
+                    this.executeStaffDataSearch();
+                });
+                element.addEventListener('change', () => {
+                    this.executeStaffDataSearch();
+                });
+            }
+        });
+    }
+    
+    // 担当別データのソート機能を設定
+    private setupStaffDataSort(): void {
+        const sortableHeaders = document.querySelectorAll('#staffDataTable th.sortable');
+        
+        sortableHeaders.forEach(header => {
+            header.addEventListener('click', (e) => {
+                const target = e.currentTarget as HTMLElement;
+                const sortKey = target.getAttribute('data-sort');
+                if (sortKey) {
+                    this.executeStaffDataSort(sortKey);
+                }
+            });
+        });
+    }
+    
+    // 担当別データの検索を実行
+    private executeStaffDataSearch(): void {
+        const staffNameSearch = document.getElementById('staffNameSearch') as HTMLInputElement;
+        const regionSearch = document.getElementById('regionSearch') as HTMLInputElement;
+        const departmentSearch = document.getElementById('departmentSearch') as HTMLInputElement;
+        const ordersSearch = document.getElementById('ordersSearch') as HTMLSelectElement;
+        const elderlySearch = document.getElementById('elderlySearch') as HTMLSelectElement;
+        
+        const staffNameValue = staffNameSearch?.value.toLowerCase() || '';
+        const regionValue = regionSearch?.value.toLowerCase() || '';
+        const departmentValue = departmentSearch?.value.toLowerCase() || '';
+        const ordersValue = ordersSearch?.value || '';
+        const elderlyValue = elderlySearch?.value || '';
+        
+        const table = document.getElementById('staffDataTable');
+        if (!table) return;
+        
+        const rows = table.querySelectorAll('tbody tr');
+        let visibleCount = 0;
+        
+        rows.forEach((row: Element) => {
+            const rowElement = row as HTMLElement;
+            const region = rowElement.getAttribute('data-region') || '';
+            const department = rowElement.getAttribute('data-department') || '';
+            const staff = rowElement.getAttribute('data-staff') || '';
+            const orders = parseInt(rowElement.getAttribute('data-orders') || '0');
+            const elderly = parseInt(rowElement.getAttribute('data-elderly') || '0');
+            
+            // 検索条件の判定
+            const matchesStaff = !staffNameValue || staff.toLowerCase().includes(staffNameValue);
+            const matchesRegion = !regionValue || region.toLowerCase().includes(regionValue);
+            const matchesDepartment = !departmentValue || department.toLowerCase().includes(departmentValue);
+            const matchesOrders = !ordersValue || this.matchesOrderCondition(orders, ordersValue);
+            const matchesElderly = !elderlyValue || this.matchesOrderCondition(elderly, elderlyValue);
+            
+            if (matchesStaff && matchesRegion && matchesDepartment && matchesOrders && matchesElderly) {
+                rowElement.style.display = '';
+                visibleCount++;
+                
+                // 検索結果のハイライト
+                if (staffNameValue || regionValue || departmentValue || ordersValue || elderlyValue) {
+                    rowElement.classList.add('search-result-highlight');
+                } else {
+                    rowElement.classList.remove('search-result-highlight');
+                }
+            } else {
+                rowElement.style.display = 'none';
+                rowElement.classList.remove('search-result-highlight');
+            }
+        });
+        
+        // 検索結果件数を更新
+        this.updateSearchResultInfo(visibleCount, rows.length);
+    }
+    
+    // 検索条件の判定（件数）
+    private matchesOrderCondition(actual: number, condition: string): boolean {
+        if (!condition) return true;
+        
+        switch (condition) {
+            case '0': return actual === 0;
+            case '5': return actual >= 5;
+            case '10': return actual >= 10;
+            case '15': return actual >= 15;
+            case '20': return actual >= 20;
+            case '30': return actual >= 30;
+            default: return true;
+        }
+    }
+    
+    // 検索結果件数を更新
+    private updateSearchResultInfo(visibleCount: number, totalCount: number): void {
+        const searchResultInfo = document.getElementById('searchResultInfo');
+        if (searchResultInfo) {
+            searchResultInfo.textContent = `検索結果: ${visibleCount}件 / 総件数: ${totalCount}件`;
+        }
+    }
+    
+    // 担当別データの検索条件をクリア
+    private clearStaffDataSearch(): void {
+        const staffNameSearch = document.getElementById('staffNameSearch') as HTMLInputElement;
+        const regionSearch = document.getElementById('regionSearch') as HTMLInputElement;
+        const departmentSearch = document.getElementById('departmentSearch') as HTMLInputElement;
+        const ordersSearch = document.getElementById('ordersSearch') as HTMLSelectElement;
+        const elderlySearch = document.getElementById('elderlySearch') as HTMLSelectElement;
+        
+        if (staffNameSearch) staffNameSearch.value = '';
+        if (regionSearch) regionSearch.value = '';
+        if (departmentSearch) departmentSearch.value = '';
+        if (ordersSearch) ordersSearch.value = '';
+        if (elderlySearch) elderlySearch.value = '';
+        
+        // 検索を実行して全件表示
+        this.executeStaffDataSearch();
+    }
+    
+    // 担当別データのソートを実行
+    private executeStaffDataSort(sortKey: string): void {
+        const table = document.getElementById('staffDataTable');
+        if (!table) return;
+        
+        const tbody = table.querySelector('tbody');
+        if (!tbody) return;
+        
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const header = table.querySelector(`th[data-sort="${sortKey}"]`);
+        
+        if (!header) return;
+        
+        // 現在のソート状態を確認
+        const currentSort = header.classList.contains('sort-asc') ? 'asc' : 
+                           header.classList.contains('sort-desc') ? 'desc' : 'none';
+        
+        // ソート状態をリセット
+        table.querySelectorAll('th.sortable').forEach(th => {
+            th.classList.remove('sort-asc', 'sort-desc');
+        });
+        
+        // 新しいソート状態を設定
+        let newSort: string;
+        if (currentSort === 'none' || currentSort === 'desc') {
+            newSort = 'asc';
+            header.classList.add('sort-asc');
+        } else {
+            newSort = 'desc';
+            header.classList.add('sort-desc');
+        }
+        
+        // データをソート
+        rows.sort((a, b) => {
+            const aValue = this.getSortValue(a, sortKey);
+            const bValue = this.getSortValue(b, sortKey);
+            
+            if (newSort === 'asc') {
+                return this.compareValues(aValue, bValue);
+            } else {
+                return this.compareValues(bValue, aValue);
+            }
+        });
+        
+        // ソートされた行を再配置
+        rows.forEach(row => tbody.appendChild(row));
+    }
+    
+    // ソート用の値を取得
+    private getSortValue(row: Element, sortKey: string): any {
+        switch (sortKey) {
+            case 'region':
+            case 'department':
+                const numValue = parseInt(row.getAttribute(`data-${sortKey}`) || '0');
+                return isNaN(numValue) ? 0 : numValue;
+            case 'staff':
+                return row.getAttribute('data-staff') || '';
+            case 'orders':
+            case 'normalAge':
+            case 'elderly':
+            case 'single':
+            case 'excessive':
+            case 'overtime':
+                const value = parseInt(row.getAttribute(`data-${sortKey}`) || '0');
+                return isNaN(value) ? 0 : value;
+            default:
+                return '';
+        }
+    }
+    
+    // 値の比較
+    private compareValues(a: any, b: any): number {
+        if (typeof a === 'number' && typeof b === 'number') {
+            return a - b;
+        }
+        if (typeof a === 'string' && typeof b === 'string') {
+            return a.localeCompare(b, 'ja');
+        }
+        return 0;
+    }
+    
     // 担当別データのCSV出力ボタンのイベントリスナーを設定
     private setupStaffDataExportButton(): void {
         const exportButton = document.querySelector('.btn-export-staff-data');
@@ -771,13 +1009,14 @@ export class App {
                     const monthlyData = this.getCurrentMonthlyData();
                     const targetData = monthlyData && monthlyData.length > 0 ? monthlyData : currentData;
                     
-                    // 月報の場合はその月の最初の日、そうでなければ現在の日付を使用
+                    // 月報の場合はその月の代表的な日付（15日）、そうでなければ現在の日付を使用
                     let targetDate: Date;
                     if (monthlyData && monthlyData.length > 0) {
                         const reportMonthInput = document.getElementById('reportMonth') as HTMLInputElement;
                         if (reportMonthInput && reportMonthInput.value) {
                             const [year, month] = reportMonthInput.value.split('-').map(Number);
-                            targetDate = new Date(year, month - 1, 1);
+                            // 月の代表的な日付として15日を使用（月の真ん中）
+                            targetDate = new Date(year, month - 1, 15);
                         } else {
                             targetDate = new Date();
                         }
@@ -1181,7 +1420,7 @@ export class App {
         if (addedDates.length > 0) {
             this.showMessage(`${message}が${addedDates.length}日正常に追加されました。`, 'success');
             console.log(`追加された日付: ${addedDates.join(', ')}`);
-        } else {
+            } else {
             this.showMessage('追加する日付がありませんでした。', 'info');
         }
     }

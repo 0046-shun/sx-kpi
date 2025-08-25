@@ -99,6 +99,127 @@
             border-radius: 8px;
         }
         
+        /* 担当別データの検索・ソート機能用スタイル */
+        .search-form {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            border: 1px solid #dee2e6;
+        }
+        
+        .search-form .form-label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.5rem;
+        }
+        
+        .sortable {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        
+        .sort-icon {
+            margin-left: 0.5rem;
+            opacity: 0.6;
+            transition: all 0.2s ease;
+            font-size: 0.8em;
+        }
+        
+        .sortable.sort-asc .sort-icon::before {
+            content: "\\f0de"; /* fa-sort-up */
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .sortable.sort-desc .sort-icon::before {
+            content: "\\f0dd"; /* fa-sort-down */
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .sortable.sort-asc,
+        .sortable.sort-desc {
+            background-color: rgba(255, 255, 255, 0.15) !important;
+        }
+        
+        /* テーブルヘッダーの統一 */
+        #staffDataTable th {
+            font-weight: 600;
+            text-align: center;
+            vertical-align: middle;
+            padding: 0.75rem 0.5rem;
+            position: relative;
+            border: none;
+            background-color: #343a40 !important;
+            color: #ffffff !important;
+        }
+        
+        #staffDataTable th.sortable {
+            position: relative;
+        }
+        
+        /* ソートアイコンを▲・▼で表示（文字化け防止） */
+        #staffDataTable th.sortable::after {
+            content: "▲";
+            margin-left: 0.5rem;
+            opacity: 0.4;
+            transition: all 0.2s ease;
+            color: #ffffff;
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        
+        #staffDataTable th.sortable.sort-asc::after {
+            content: "▲";
+            color: #28a745;
+            opacity: 1;
+        }
+        
+        #staffDataTable th.sortable.sort-desc::after {
+            content: "▼";
+            color: #dc3545;
+            opacity: 1;
+        }
+        
+        /* ソート可能なヘッダーのパディング調整 */
+        #staffDataTable th.sortable {
+            padding-right: 2rem !important;
+        }
+        
+        /* ホバー時の背景色を完全制御 */
+        #staffDataTable th.sortable:hover {
+            background-color: #495057 !important;
+        }
+        
+        #staffDataTable th.sortable.sort-asc,
+        #staffDataTable th.sortable.sort-desc {
+            background-color: #495057 !important;
+        }
+        
+        .table-hover tbody tr:hover {
+            background-color: rgba(0, 123, 255, 0.1) !important;
+        }
+        
+        .search-result-highlight {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .search-form .btn {
+            transition: all 0.2s ease;
+        }
+        
+        .search-form .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
         .region-stat-number {
             font-size: 1.5rem;
             font-weight: bold;
