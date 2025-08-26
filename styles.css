@@ -4,130 +4,348 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* PDF出力専用スタイル */
+/* PDF用スタイル */
 .pdf-container {
-    background: white;
-    padding: 20px;
-    width: 190mm;
-    min-height: 270mm;
-    margin: 0;
-    box-shadow: none;
-    font-family: 'Yu Gothic', 'Hiragino Sans', 'Meiryo', sans-serif;
-    position: absolute;
-    left: -9999px;
-    top: 0;
+    width: 750px !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 15px !important;
+    font-size: 10pt !important;
+    color: #000000 !important;
+    background: white !important;
+    font-family: 'Arial', 'Hiragino Sans', 'Yu Gothic', sans-serif !important;
+    line-height: 1.2 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    margin: 0 auto !important;
+    display: block !important;
 }
 
+/* PDF用ページ */
+.pdf-page {
+    width: 100% !important;
+    max-width: 720px !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: white !important;
+}
+
+/* PDF用ヘッダー */
 .pdf-header {
-    text-align: center;
-    margin-bottom: 25px;
-    border-bottom: 3px solid #0d6efd;
-    padding-bottom: 15px;
+    text-align: center !important;
+    margin-bottom: 15px !important;
+    padding-bottom: 10px !important;
+    border-bottom: 2px solid #333333 !important;
+    width: 100% !important;
 }
 
 .pdf-title {
-    font-size: 28px;
-    font-weight: bold;
-    color: #0d6efd;
-    margin: 0;
+    font-size: 18pt !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+    margin-bottom: 6px !important;
 }
 
 .pdf-date {
-    font-size: 16px;
-    color: #6c757d;
-    margin-top: 8px;
+    font-size: 12pt !important;
+    font-weight: bold !important;
+    color: #000000 !important;
 }
 
+/* PDF用セクション */
 .pdf-section {
-    margin-bottom: 20px;
+    margin-bottom: 15px !important;
+    width: 100% !important;
 }
 
 .pdf-section-title {
-    font-size: 18px;
-    font-weight: bold;
-    color: #495057;
-    margin-bottom: 15px;
-    border-left: 4px solid #0d6efd;
-    padding-left: 12px;
+    font-size: 12pt !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+    margin-bottom: 10px !important;
+    padding: 8px 12px !important;
+    background: #f8f9fa !important;
+    border-left: 4px solid #333333 !important;
+    border-radius: 4px !important;
 }
 
-.pdf-stats-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
-    margin-bottom: 20px;
+/* PDF用総件数統計（月報と同じスタイル） */
+.pdf-total-stats-container {
+    margin-bottom: 15px !important;
 }
 
-.pdf-stat-card {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    padding: 20px;
-    text-align: center;
+.pdf-total-stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 12px !important;
 }
 
-.pdf-stat-number {
-    font-size: 32px;
-    font-weight: bold;
-    color: #0d6efd;
-    margin-bottom: 8px;
+.pdf-total-stat-item {
+    background: white !important;
+    border: 2px solid #333333 !important;
+    border-radius: 8px !important;
+    padding: 12px !important;
+    text-align: center !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
 }
 
-.pdf-stat-label {
-    font-size: 14px;
-    color: #6c757d;
-    line-height: 1.4;
+.pdf-total-stat-number {
+    font-size: 14pt !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+    margin-bottom: 6px !important;
 }
 
+.pdf-total-stat-label {
+    font-size: 10pt !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+}
+
+/* PDF用地区統計 */
 .pdf-region-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 15px;
-    margin-bottom: 20px;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    margin-bottom: 15px !important;
 }
 
 .pdf-region-card {
-    background: #fff;
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    padding: 15px;
+    background: white !important;
+    border: 2px solid #333333 !important;
+    border-radius: 8px !important;
+    padding: 12px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    min-height: 160px !important;
 }
 
 .pdf-region-name {
-    font-weight: bold;
-    color: #495057;
-    margin-bottom: 10px;
-    border-bottom: 1px solid #dee2e6;
-    padding-bottom: 5px;
+    font-size: 10pt !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+    text-align: center !important;
+    margin-bottom: 8px !important;
+    padding: 6px !important;
+    background: #e9ecef !important;
+    border-radius: 4px !important;
+    border-bottom: 2px solid #333333 !important;
 }
 
 .pdf-region-stats {
-    font-size: 13px;
-    line-height: 1.6;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
 }
 
+.pdf-region-stat-item {
+    text-align: center !important;
+    padding: 4px !important;
+}
+
+.pdf-region-stat-label {
+    font-size: 8pt !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+    margin-bottom: 2px !important;
+}
+
+.pdf-region-stat-value {
+    font-size: 10pt !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+}
+
+/* PDF用年齢統計 */
 .pdf-age-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+    margin-bottom: 15px !important;
 }
 
 .pdf-age-card {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    padding: 15px;
+    background: white !important;
+    border: 2px solid #333333 !important;
+    border-radius: 8px !important;
+    padding: 12px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
 }
 
 .pdf-age-title {
-    font-weight: bold;
-    color: #495057;
-    margin-bottom: 10px;
+    font-size: 10pt !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+    text-align: center !important;
+    margin-bottom: 8px !important;
+    padding: 6px !important;
+    background: #e9ecef !important;
+    border-radius: 4px !important;
+    border-bottom: 2px solid #333333 !important;
 }
 
 .pdf-age-stats {
-    font-size: 13px;
-    line-height: 1.6;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+}
+
+.pdf-age-stat-item {
+    text-align: center !important;
+    padding: 4px !important;
+}
+
+.pdf-age-stat-label {
+    font-size: 8pt !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+    margin-bottom: 2px !important;
+}
+
+.pdf-age-stat-value {
+    font-size: 10pt !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+}
+
+/* PDF用ランキング */
+.pdf-ranking-section {
+    margin-bottom: 20px !important;
+    page-break-inside: avoid !important;
+}
+
+.pdf-ranking-title {
+    font-size: 12pt !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+    margin-bottom: 12px !important;
+    padding: 8px 12px !important;
+    background: #e9ecef !important;
+    border-left: 4px solid #333333 !important;
+    border-bottom: 1px solid #333333 !important;
+}
+
+/* PDF用ランキングテーブル */
+.pdf-ranking-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-bottom: 15px !important;
+}
+
+.pdf-ranking-header,
+.pdf-ranking-row {
+    display: grid !important;
+    grid-template-columns: 60px 60px 60px 160px 60px !important;
+    gap: 2px !important;
+    width: 100% !important;
+}
+
+.pdf-ranking-header {
+    background: #f8f9fa !important;
+    border-bottom: 2px solid #333333 !important;
+    font-weight: bold !important;
+}
+
+.pdf-ranking-row {
+    border-bottom: 1px solid #333333 !important;
+}
+
+.pdf-ranking-row:nth-child(even) {
+    background: #f8f9fa !important;
+}
+
+.pdf-ranking-cell {
+    padding: 4px 2px !important;
+    text-align: center !important;
+    font-size: 8pt !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+    border-right: 1px solid #333333 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: 1.1 !important;
+}
+
+.pdf-ranking-cell:last-child {
+    border-right: none !important;
+}
+
+.pdf-ranking-header .pdf-ranking-cell {
+    background-color: #e9ecef !important;
+    font-weight: bold !important;
+}
+
+/* PDF用ページ区切り */
+.pdf-page-break {
+    page-break-before: always !important;
+    margin-top: 20px !important;
+    width: 100% !important;
+}
+
+/* PDF用ページヘッダー */
+.pdf-page-header {
+    text-align: center !important;
+    margin-bottom: 20px !important;
+    padding-bottom: 15px !important;
+    border-bottom: 2px solid #333333 !important;
+    width: 100% !important;
+}
+
+.pdf-page-title {
+    font-size: 16pt !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+    margin-bottom: 8px !important;
+}
+
+.pdf-page-subtitle {
+    font-size: 12pt !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+}
+
+/* PDF用フォント設定 */
+.pdf-container * {
+    font-family: 'Arial', 'Hiragino Sans', 'Yu Gothic', sans-serif !important;
+    color: #000000 !important;
+}
+
+/* PDF用ボーダー設定 */
+.pdf-container table,
+.pdf-container th,
+.pdf-container td {
+    border: 1px solid #333333 !important;
+    border-collapse: collapse !important;
+}
+
+/* PDF用背景色設定 */
+.pdf-container .bg-primary,
+.pdf-container .bg-success,
+.pdf-container .bg-warning,
+.pdf-container .bg-danger {
+    background-color: #f0f0f0 !important;
+    color: #000000 !important;
+}
+
+/* PDF用アイコン設定 */
+.pdf-container .fas,
+.pdf-container .fa {
+    color: #000000 !important;
+}
+
+/* 印刷時のスタイル調整 */
+@media print {
+    .pdf-container {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 10mm !important;
+    }
+    
+    .pdf-container * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
 }
 
 .drop-zone {
@@ -548,48 +766,22 @@ body {
     line-height: 1.2;
 }
 
-/* PDF用総件数セクション */
-.pdf-total-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
-    margin-bottom: 20px;
-}
-
-.pdf-total-stat-item {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    padding: 15px;
-    text-align: center;
-}
-
-.pdf-total-stat-number {
-    font-size: 24px;
-    font-weight: bold;
-    color: #0d6efd;
-    margin-bottom: 8px;
-}
-
-.pdf-total-stat-label {
-    font-size: 12px;
-    color: #6c757d;
-    line-height: 1.3;
-}
-
-/* PDF用担当者別ランキングセクション */
+/* PDF用ランキングセクション */
 .pdf-ranking-section {
-    margin-bottom: 25px;
+    margin-bottom: 20px !important;
+    width: 100% !important;
 }
 
 .pdf-ranking-title {
-    font-size: 14px;
-    font-weight: bold;
-    color: #495057;
-    margin-bottom: 10px;
-    padding: 8px;
-    background-color: #f8f9fa;
-    border-left: 4px solid #007bff;
+    font-size: 14pt !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+    text-align: center !important;
+    margin-bottom: 15px !important;
+    padding: 10px !important;
+    background: #f8f9fa !important;
+    border: 2px solid #333333 !important;
+    border-radius: 6px !important;
 }
 
 .pdf-ranking-table {
@@ -600,7 +792,7 @@ body {
 
 .pdf-ranking-header {
     display: grid;
-    grid-template-columns: 80px 80px 80px 120px 80px;
+    grid-template-columns: 55px 55px 55px 140px 55px;
     background-color: #e9ecef;
     font-weight: bold;
     font-size: 11px;
@@ -608,18 +800,22 @@ body {
 
 .pdf-ranking-row {
     display: grid;
-    grid-template-columns: 80px 80px 80px 120px 80px;
+    grid-template-columns: 55px 55px 55px 140px 55px;
     border-top: 1px solid #dee2e6;
     font-size: 11px;
 }
 
 .pdf-ranking-cell {
-    padding: 6px 4px;
+    padding: 5px 3px;
     text-align: center;
-    border-right: 1px solid #dee2e6;
+    font-size: 8pt;
+    font-weight: bold;
+    color: #000000;
+    border-right: 1px solid #333333;
     display: flex;
     align-items: center;
     justify-content: center;
+    line-height: 1.1;
 }
 
 .pdf-ranking-cell:last-child {

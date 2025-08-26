@@ -33,6 +33,7 @@ export declare class ReportGenerator {
     private createRegionStatsHTML;
     private createAgeStatsHTML;
     exportToPDF(report: any, type: string): Promise<void>;
+    private exportMonthlyReportToPDF;
     private createPDFHTML;
     exportToCSV(report: any, type: string): Promise<void>;
     private exportStaffRankingCSVs;
@@ -45,8 +46,10 @@ export declare class ReportGenerator {
     exportStaffDataToCSV(staffData: StaffData[]): Promise<void>;
     createStaffDataHTML(staffData: StaffData[]): string;
     createDataConfirmationHTML(data: any[]): string;
-    createDailyReportPDFHTML(report: any): string;
+    private createDailyReportPDFHTML;
     private createRegionStatsPDFHTML;
-    private createRegionCardHTML;
+    private createRegionCardPDFHTML;
+    private createAgeStatsPDFHTML;
     createMonthlyReportPDFHTML(report: any): string;
+    private createRankingTablePDFHTML;
 }

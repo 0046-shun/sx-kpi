@@ -586,10 +586,6 @@ export class App {
             const year = firstRow.date.getFullYear();
             const month = firstRow.date.getMonth();
             const targetDate = new Date(year, month, 15); // 月の15日を基準に設定
-            console.log(`ドロップデータからtargetDate設定: 元データ=${firstRow.date.toISOString()}, 年=${year}, 月=${month}, targetDate=${targetDate.toISOString()}`);
-            // データの月分布を確認
-            const monthDistribution = this.getMonthDistribution(rawData);
-            console.log('データの月分布:', monthDistribution);
             const staffData = this.reportGenerator.generateStaffData(rawData, targetDate);
             // 担当別データのHTMLを生成して表示
             const staffContainer = document.getElementById('staffDataContent');
@@ -606,7 +602,6 @@ export class App {
     // 担当別データを月報データで更新
     updateStaffDataWithMonthlyData(monthlyData, monthString) {
         if (monthlyData.length === 0) {
-            console.log('月報データがありません');
             return;
         }
         // 月報データの最初の行から月を取得
@@ -615,10 +610,6 @@ export class App {
             const year = firstRow.date.getFullYear();
             const month = firstRow.date.getMonth();
             const targetDate = new Date(year, month, 15); // 月の15日を基準に設定
-            console.log(`月報データからtargetDate設定: 月報データ=${firstRow.date.toISOString()}, 年=${year}, 月=${month}, targetDate=${targetDate.toISOString()}`);
-            // データの月分布を確認
-            const monthDistribution = this.getMonthDistribution(monthlyData);
-            console.log('月報データの月分布:', monthDistribution);
             const staffData = this.reportGenerator.generateStaffData(monthlyData, targetDate);
             // 担当別データのHTMLを生成して表示
             const staffContainer = document.getElementById('staffDataContent');
@@ -627,9 +618,6 @@ export class App {
                 staffContainer.innerHTML = monthHeader + this.reportGenerator.createStaffDataHTML(staffData);
             }
             this.setupStaffDataSearchAndSort();
-        }
-        else {
-            console.log('月報データから日付を取得できません');
         }
     }
     // 担当別データ用の月ヘッダーを生成

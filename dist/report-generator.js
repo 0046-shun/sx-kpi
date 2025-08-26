@@ -78,9 +78,6 @@ export class ReportGenerator {
         this.currentTargetDate = targetDate; // 時間外判定で使用
         const targetMonth = targetDate.getMonth();
         const targetDay = targetDate.getDate();
-        console.log('日報生成開始 - 対象日:', date);
-        console.log('対象月:', targetMonth + 1, '対象日:', targetDay);
-        console.log('総データ件数:', data.length);
         // 受注日が対象日のデータを取得（公休日・禁止日施工判定用）
         const dailyData = data.filter(row => {
             // 日付チェック
@@ -149,7 +146,6 @@ export class ReportGenerator {
             const isValid = isDateMatch && isJColumnValid && isKColumnValid;
             return isValid;
         });
-        console.log('日報対象データ件数:', dailyData.length);
         const reportData = this.calculateReportData(dailyData, 'daily');
         // 選択された日付情報を追加
         reportData.selectedDate = date;
@@ -157,8 +153,6 @@ export class ReportGenerator {
     }
     generateMonthlyReport(data, month) {
         const [year, monthNum] = month.split('-').map(Number);
-        console.log('月報生成開始 - 対象年月:', year, monthNum);
-        console.log('総データ件数:', data.length);
         const monthlyData = data.filter(row => {
             // 日付チェック
             if (!row.date) {
@@ -880,77 +874,213 @@ export class ReportGenerator {
     }
     async exportToPDF(report, type) {
         try {
+            // 処理開始メッセージ
+            const messageDiv = document.createElement('div');
+            messageDiv.id = 'pdf-processing-message';
+            messageDiv.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: #007bff;
+                color: white;
+                padding: 20px 40px;
+                border-radius: 10px;
+                font-size: 18px;
+                font-weight: bold;
+                z-index: 10000;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            `;
+            messageDiv.innerHTML = `
+                <div style="text-align: center;">
+                    <div style="margin-bottom: 15px;">🔄 PDF生成中...</div>
+                    <div style="font-size: 14px; opacity: 0.9;">しばらくお待ちください</div>
+                </div>
+            `;
+            document.body.appendChild(messageDiv);
             // PDF用のHTML要素を動的に作成
             const pdfContainer = this.createPDFHTML(report, type);
+            // コンテナを画面外に配置（レンダリング用）
+            pdfContainer.style.cssText = `
+                position: absolute;
+                left: -9999px;
+                top: -9999px;
+                visibility: visible;
+                width: 794px;
+                height: auto;
+                background: white;
+                z-index: -1;
+            `;
             document.body.appendChild(pdfContainer);
-            // jsPDFインスタンス（余白なし）
+            // コンテンツが確実にレンダリングされるまで待機
+            await new Promise(resolve => setTimeout(resolve, 100));
+            // jsPDFインスタンス（A4サイズ、余白10mm）
             const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
-            const marginX = 14; // 左右余白（画像イメージに合わせて広め）
-            const marginY = 12; // 上下余白（視覚的に落ち着く程度）
-            // 対象セクションを取得（なければコンテナ全体）
-            const sections = Array.from(pdfContainer.querySelectorAll('.report-section'));
-            const targets = sections.length > 0 ? sections : [pdfContainer];
-            for (let i = 0; i < targets.length; i++) {
-                const section = targets[i];
-                // セクション単位でレンダリング（高解像度）
-                const canvas = await window.html2canvas(section, {
-                    scale: 3,
-                    useCORS: true,
-                    allowTaint: true,
-                    backgroundColor: '#ffffff',
-                    logging: false
-                });
-                const imgData = canvas.toDataURL('image/png');
-                const imgWpx = canvas.width;
-                const imgHpx = canvas.height;
-                const imgAspect = imgWpx / imgHpx;
-                // ページの利用可能領域（上下左右に適度な余白）
-                const availW = pageWidth - marginX * 2;
-                const availH = pageHeight - marginY * 2;
-                // 高さ優先で拡大（1枚を使い切る）
-                let drawHeight = availH;
-                let drawWidth = drawHeight * imgAspect;
-                // はみ出す場合のみ幅優先に切替
-                if (drawWidth > availW) {
-                    drawWidth = availW;
-                    drawHeight = drawWidth / imgAspect;
-                }
-                // 左右は中央寄せ、縦は上寄せ（上marginY固定）
-                const x = (pageWidth - drawWidth) / 2;
-                const y = marginY;
-                if (i > 0) {
-                    pdf.addPage();
-                }
-                pdf.addImage(imgData, 'PNG', x, y, drawWidth, drawHeight, undefined, 'FAST');
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4',
+                compress: true
+            });
+            const pageWidth = pdf.internal.pageSize.getWidth(); // 210mm
+            const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm
+            const marginX = 10; // 左右余白10mm
+            const marginY = 10; // 上下余白10mm
+            // メッセージ更新
+            messageDiv.innerHTML = `
+                <div style="text-align: center;">
+                    <div style="margin-bottom: 15px;">📄 PDF生成中...</div>
+                    <div style="font-size: 14px; opacity: 0.9;">高品質レンダリング中</div>
+                </div>
+            `;
+            // 月報の場合はページ分割処理
+            if (type === 'monthly' && report.elderlyStaffRanking) {
+                await this.exportMonthlyReportToPDF(pdfContainer, pdf, pageWidth, pageHeight, marginX, marginY, messageDiv);
             }
-            // 一時的なHTML要素を削除
-            document.body.removeChild(pdfContainer);
+            else {
+                // 日報の場合も個別ページ処理に変更（月報と同じ方式）
+                await this.exportMonthlyReportToPDF(pdfContainer, pdf, pageWidth, pageHeight, marginX, marginY, messageDiv);
+            }
+            // 一時的なHTML要素を完全削除
+            if (pdfContainer && pdfContainer.parentNode) {
+                pdfContainer.parentNode.removeChild(pdfContainer);
+            }
             // PDFをダウンロード
             const fileName = `${type === 'daily' ? '日報' : '月報'}_${new Date().toISOString().split('T')[0]}.pdf`;
             pdf.save(fileName);
+            // 完了メッセージ
+            messageDiv.innerHTML = `
+                <div style="text-align: center;">
+                    <div style="margin-bottom: 15px;">✅ PDF生成完了！</div>
+                    <div style="font-size: 14px; opacity: 0.9;">${fileName}</div>
+                </div>
+            `;
+            // 3秒後にメッセージを自動削除
+            setTimeout(() => {
+                if (messageDiv && messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+            }, 3000);
         }
         catch (error) {
             console.error('PDF出力エラー:', error);
+            // エラーメッセージを表示
+            const messageDiv = document.getElementById('pdf-processing-message');
+            if (messageDiv) {
+                messageDiv.innerHTML = `
+                    <div style="text-align: center;">
+                        <div style="margin-bottom: 15px;">❌ PDF生成エラー</div>
+                        <div style="font-size: 14px; opacity: 0.9;">エラーが発生しました</div>
+                    </div>
+                `;
+                messageDiv.style.background = '#dc3545';
+                // 5秒後に削除
+                setTimeout(() => {
+                    if (messageDiv && messageDiv.parentNode) {
+                        messageDiv.parentNode.removeChild(messageDiv);
+                    }
+                }, 5000);
+            }
             alert('PDFの出力に失敗しました。');
         }
+    }
+    // 月報・日報用PDF出力（個別ページ処理）
+    async exportMonthlyReportToPDF(pdfContainer, pdf, pageWidth, pageHeight, marginX, marginY, messageDiv) {
+        // 各ページを個別に処理
+        const pages = pdfContainer.querySelectorAll('.pdf-page');
+        for (let i = 0; i < pages.length; i++) {
+            const page = pages[i];
+            const pageNumber = i + 1;
+            // メッセージ更新
+            messageDiv.innerHTML = `
+                <div style="text-align: center;">
+                    <div style="margin-bottom: 15px;">📄 PDFページ生成中...</div>
+                    <div style="font-size: 14px; opacity: 0.9;">${pageNumber}枚目 / ${pages.length}枚</div>
+                </div>
+            `;
+            // 各ページを個別にhtml2canvasで処理
+            const canvas = await window.html2canvas(page, {
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                logging: false,
+                width: 794,
+                height: 1123,
+                scrollX: 0,
+                scrollY: 0,
+                letterRendering: true,
+                imageTimeout: 10000
+            });
+            // 2ページ目以降は新しいページを追加
+            if (i > 0) {
+                pdf.addPage();
+            }
+            // 画像をPDFに追加（A4サイズに合わせて調整）
+            const imgData = canvas.toDataURL('image/png', 1.0);
+            const imgWpx = canvas.width;
+            const imgHpx = canvas.height;
+            const imgAspect = imgWpx / imgHpx;
+            // ページの利用可能領域
+            const availW = pageWidth - marginX * 2; // 190mm
+            const availH = pageHeight - marginY * 2; // 277mm
+            // 高さ優先で拡大
+            let drawHeight = availH;
+            let drawWidth = drawHeight * imgAspect;
+            // 幅がはみ出す場合は幅優先に切り替え
+            if (drawWidth > availW) {
+                drawWidth = availW;
+                drawHeight = drawWidth / imgAspect;
+            }
+            // 中央配置
+            const x = (pageWidth - drawWidth) / 2;
+            const y = marginY;
+            pdf.addImage(imgData, 'PNG', x, y, drawWidth, drawHeight, undefined, 'FAST');
+        }
+        // メッセージ更新
+        messageDiv.innerHTML = `
+            <div style="text-align: center;">
+                <div style="margin-bottom: 15px;">💾 PDF保存中...</div>
+                <div style="font-size: 14px; opacity: 0.9;">完了までしばらくお待ちください</div>
+            </div>
+        `;
     }
     createPDFHTML(report, type) {
         const container = document.createElement('div');
         container.className = 'pdf-container';
+        let htmlContent = '';
         // 新しく作成したPDF用メソッドを使用
         if (type === 'daily') {
-            container.innerHTML = this.createDailyReportPDFHTML(report);
+            // 日付テキストを生成
+            let dateText = '';
+            if (report.selectedDate) {
+                const selectedDate = new Date(report.selectedDate);
+                dateText = selectedDate.toLocaleDateString('ja-JP');
+            }
+            else {
+                const now = new Date();
+                dateText = now.toLocaleDateString('ja-JP');
+            }
+            htmlContent = this.createDailyReportPDFHTML(report, dateText);
         }
         else if (type === 'monthly') {
-            container.innerHTML = this.createMonthlyReportPDFHTML(report);
+            htmlContent = this.createMonthlyReportPDFHTML(report);
         }
         else {
             // フォールバック
-            container.innerHTML = this.createDailyReportPDFHTML(report);
+            let dateText = '';
+            if (report.selectedDate) {
+                const selectedDate = new Date(report.selectedDate);
+                dateText = selectedDate.toLocaleDateString('ja-JP');
+            }
+            else {
+                const now = new Date();
+                dateText = now.toLocaleDateString('ja-JP');
+            }
+            htmlContent = this.createDailyReportPDFHTML(report, dateText);
         }
+        // innerHTMLではなく、insertAdjacentHTMLを使用
+        container.insertAdjacentHTML('beforeend', htmlContent);
         return container;
     }
     async exportToCSV(report, type) {
@@ -1076,22 +1206,7 @@ export class ReportGenerator {
                 ];
                 await this.downloadCSV(excessiveData, `③過量販売ランキング_${monthText}.csv`);
             }
-            // ④69歳以下契約件数の担当別件数
-            if (report.normalAgeStaffRanking && report.normalAgeStaffRanking.length > 0) {
-                const normalData = [
-                    ['④69歳以下契約件数の担当別件数'],
-                    [''],
-                    ['ランキング', '地区No.', '所属No.', '担当名', '件数'],
-                    ...report.normalAgeStaffRanking.map((staff) => [
-                        staff.rank.toString(),
-                        staff.regionNo,
-                        staff.departmentNo,
-                        staff.staffName,
-                        staff.count.toString()
-                    ])
-                ];
-                await this.downloadCSV(normalData, `④69歳以下契約件数担当別_${monthText}.csv`);
-            }
+            // ④69歳以下契約件数の担当別件数は除外（PDF出力と同様）
         }
         catch (error) {
             console.error('担当者別ランキングCSV出力エラー:', error);
@@ -1151,7 +1266,6 @@ export class ReportGenerator {
     // 担当別データを生成
     generateStaffData(data, targetDate) {
         const staffData = [];
-        console.log(`generateStaffData開始: データ件数=${data.length}, targetDate=${targetDate.toISOString()}`);
         // 対象月のデータのみを抽出
         const targetYear = targetDate.getFullYear();
         const targetMonth = targetDate.getMonth();
@@ -1160,7 +1274,6 @@ export class ReportGenerator {
                 return false;
             return row.date.getFullYear() === targetYear && row.date.getMonth() === targetMonth;
         });
-        console.log(`対象月(${targetYear}年${targetMonth + 1}月)のデータ件数: ${monthlyData.length}`);
         monthlyData.forEach((row, index) => {
             // 担当者名の正規化
             const normalizedStaffName = this.normalizeStaffName(row.staffName);
@@ -1168,10 +1281,6 @@ export class ReportGenerator {
             const isOrder = this.isSimpleOrder(row);
             // 年齢の取得
             const ageNum = this.getContractorAge(row);
-            // 最初の10件のみデバッグログ
-            if (index < 10) {
-                console.log(`行${index}: ${normalizedStaffName}, 年齢:${ageNum}, isOrder:${isOrder}, 確認:${row.confirmation}, K列:${row.confirmationDateTime}`);
-            }
             if (normalizedStaffName && row.regionNumber && row.departmentNumber) {
                 const existingStaff = staffData.find(s => s.regionNo === row.regionNumber &&
                     s.departmentNo === row.departmentNumber &&
@@ -1213,22 +1322,9 @@ export class ReportGenerator {
                         excessiveOrders: (isOrder && this.excelProcessor.isExcessive(row)) ? 1 : 0,
                         overtimeOrders: (isOrder && this.excelProcessor.isOvertime(row)) ? 1 : 0
                     };
-                    if (index < 10) {
-                        console.log(`新規担当者: ${normalizedStaffName}, 受注:${newStaff.totalOrders}, 69歳以下:${newStaff.normalAgeOrders}, 70歳以上:${newStaff.elderlyOrders}`);
-                    }
                     staffData.push(newStaff);
                 }
             }
-        });
-        // 最終結果のサマリー
-        const totalNormalAge = staffData.reduce((sum, staff) => sum + staff.normalAgeOrders, 0);
-        const totalElderly = staffData.reduce((sum, staff) => sum + staff.elderlyOrders, 0);
-        const totalOrders = staffData.reduce((sum, staff) => sum + staff.totalOrders, 0);
-        console.log(`最終集計: 受注総数=${totalOrders}, 69歳以下=${totalNormalAge}, 70歳以上=${totalElderly}`);
-        // デバッグ: 最初の10件の詳細
-        console.log('=== 最初の10件の詳細 ===');
-        staffData.slice(0, 10).forEach((staff, index) => {
-            console.log(`${index}: ${staff.staffName} - 受注:${staff.totalOrders}, 69歳以下:${staff.normalAgeOrders}, 70歳以上:${staff.elderlyOrders}`);
         });
         return staffData;
     }
@@ -1511,228 +1607,378 @@ export class ReportGenerator {
             </div>
         `;
     }
-    // 日報PDF用HTML（ランキングなし）
-    createDailyReportPDFHTML(report) {
-        // 選択された日付から日付テキストを取得
-        const selectedDate = report.selectedDate ? new Date(report.selectedDate) : new Date();
-        const dateText = selectedDate.toLocaleDateString('ja-JP');
-        return `
-            <div class="report-section" style="padding-top: 0;">
-                <h3 class="report-title" style="margin-top: 0;">
-                    <i class="fas fa-calendar-day me-2"></i>日報 - ${dateText}
-                </h3>
+    // 日報PDF用HTML（月報1枚目と同じレイアウト）
+    createDailyReportPDFHTML(report, dateText) {
+        // 月報の1枚目と完全に同じHTMLを生成（タイトルのみ「日報」に変更）
+        const html = `
+            <div class="pdf-page" data-page="1枚目: 基本統計">
+                <div class="pdf-header">
+                    <div class="pdf-title">日報</div>
+                    <div class="pdf-date">${dateText}</div>
+                </div>
                 
                 <!-- 基本統計 -->
-                <div class="mb-4">
-                    <div class="total-stats-container">
-                        <h5 class="total-stats-title"><i class="fas fa-chart-bar me-2"></i>総件数</h5>
-                        <div class="total-stats-grid">
-                            <div class="total-stat-item">
-                                <div class="total-stat-number">${report.totalOrders}</div>
-                                <div class="total-stat-label">受注件数</div>
+                <div class="pdf-section">
+                    <div class="pdf-section-title">総件数</div>
+                    <div class="pdf-total-stats-container">
+                        <div class="pdf-total-stats-grid">
+                            <div class="pdf-total-stat-item">
+                                <div class="pdf-total-stat-number">${report.totalOrders || 0}</div>
+                                <div class="pdf-total-stat-label">受注件数</div>
                             </div>
-                            <div class="total-stat-item">
-                                <div class="total-stat-number">${report.overtimeOrders}</div>
-                                <div class="total-stat-label">時間外対応</div>
+                            <div class="pdf-total-stat-item">
+                                <div class="pdf-total-stat-number">${report.overtimeOrders || 0}</div>
+                                <div class="pdf-total-stat-label">時間外対応</div>
                             </div>
-                            <div class="total-stat-item">
-                                <div class="total-stat-number">${this.getTotalExcessive(report.regionStats)}</div>
-                                <div class="total-stat-label">過量販売</div>
+                            <div class="pdf-total-stat-item">
+                                <div class="pdf-total-stat-number">${this.getTotalExcessive(report.regionStats || {}) || 0}</div>
+                                <div class="pdf-total-stat-label">過量販売</div>
                             </div>
-                            <div class="total-stat-item">
-                                <div class="total-stat-number">${this.getTotalSingle(report.regionStats)}</div>
-                                <div class="total-stat-label">単独契約</div>
+                            <div class="pdf-total-stat-item">
+                                <div class="pdf-total-stat-number">${this.getTotalSingle(report.regionStats || {}) || 0}</div>
+                                <div class="pdf-total-stat-label">単独契約</div>
                             </div>
-                            <div class="total-stat-item">
-                                <div class="total-stat-number">${this.getTotalHolidayConstruction(report.regionStats)}</div>
-                                <div class="total-stat-label">公休日施工</div>
+                            <div class="pdf-total-stat-item">
+                                <div class="pdf-total-stat-number">${this.getTotalHolidayConstruction(report.regionStats || {}) || 0}</div>
+                                <div class="pdf-total-stat-label">公休日施工</div>
                             </div>
-                            <div class="total-stat-item">
-                                <div class="total-stat-number">${this.getTotalProhibitedConstruction(report.regionStats)}</div>
-                                <div class="total-stat-label">禁止日施工</div>
+                            <div class="pdf-total-stat-item">
+                                <div class="pdf-total-stat-number">${this.getTotalProhibitedConstruction(report.regionStats || {}) || 0}</div>
+                                <div class="pdf-total-stat-label">禁止日施工</div>
                             </div>
                         </div>
                     </div>
                 </div>
                 
                 <!-- 地区別受注件数 -->
-                <div class="mb-4">
-                    <h5 class="mb-3"><i class="fas fa-map-marker-alt me-2"></i>地区別受注件数</h5>
-                    ${this.createRegionStatsPDFHTML(report.regionStats)}
+                <div class="pdf-section">
+                    <div class="pdf-section-title">地区別受注件数</div>
+                    ${this.createRegionStatsPDFHTML(report.regionStats || {})}
                 </div>
                 
                 <!-- 年齢別集計 -->
-                <div class="mb-4">
-                    <h5 class="mb-3"><i class="fas fa-users me-2"></i>年齢別集計</h5>
-                    ${this.createAgeStatsHTML(report.ageStats)}
+                <div class="pdf-section">
+                    <div class="pdf-section-title">年齢別集計</div>
+                    ${this.createAgeStatsPDFHTML(report.ageStats || {})}
                 </div>
             </div>
         `;
+        return html;
     }
-    // PDF用地区統計HTML（全地区横並び）
+    // PDF用地区統計HTML（2×2グリッド）
     createRegionStatsPDFHTML(regionStats) {
         let html = '';
+        // データの存在確認
+        if (!regionStats || Object.keys(regionStats).length === 0) {
+            return '<div class="text-center text-muted py-3">地区データがありません</div>';
+        }
         // 地区の順序を固定
         const regionOrder = ['九州地区', '中四国地区', '関西地区', '関東地区'];
         const availableRegions = regionOrder.filter(region => regionStats[region] && regionStats[region].orders > 0);
         if (availableRegions.length === 0) {
-            return '<p>地区データがありません</p>';
+            return '<div class="text-center text-muted py-3">地区データがありません</div>';
         }
-        // 2×2のグリッドレイアウトを強制
-        html += '<div class="row" style="margin: 0; padding: 0;">';
-        // 1段目: 九州｜中四国
-        html += '<div class="col-md-6" style="padding: 0 5px 10px 0;">';
-        if (availableRegions.includes('九州地区')) {
-            html += this.createRegionCardHTML('九州地区', regionStats['九州地区']);
-        }
-        html += '</div>';
-        html += '<div class="col-md-6" style="padding: 0 0 10px 5px;">';
-        if (availableRegions.includes('中四国地区')) {
-            html += this.createRegionCardHTML('中四国地区', regionStats['中四国地区']);
-        }
-        html += '</div>';
-        html += '</div>';
-        // 2段目: 関西｜関東
-        html += '<div class="row" style="margin: 0; padding: 0;">';
-        html += '<div class="col-md-6" style="padding: 5px 5px 0 0;">';
-        if (availableRegions.includes('関西地区')) {
-            html += this.createRegionCardHTML('関西地区', regionStats['関西地区']);
-        }
-        html += '</div>';
-        html += '<div class="col-md-6" style="padding: 5px 0 0 5px;">';
-        if (availableRegions.includes('関東地区')) {
-            html += this.createRegionCardHTML('関東地区', regionStats['関東地区']);
-        }
-        html += '</div>';
+        // 1つの2×2グリッドレイアウトで4つの地区を表示
+        html += '<div class="pdf-region-grid">';
+        html += this.createRegionCardPDFHTML('九州地区', regionStats['九州地区']);
+        html += this.createRegionCardPDFHTML('中四国地区', regionStats['中四国地区']);
+        html += this.createRegionCardPDFHTML('関西地区', regionStats['関西地区']);
+        html += this.createRegionCardPDFHTML('関東地区', regionStats['関東地区']);
         html += '</div>';
         return html;
     }
-    // 地区カードのHTML生成（ヘルパーメソッド）
-    createRegionCardHTML(regionName, stats) {
+    // 地区カードのPDF用HTML生成（ヘルパーメソッド）
+    createRegionCardPDFHTML(regionName, stats) {
+        if (!stats) {
+            return `<div class="pdf-region-card"><div class="pdf-region-name">${regionName}</div><div class="text-center text-muted">データなし</div></div>`;
+        }
         return `
-            <div class="region-card" style="height: 100%; margin: 0;">
-                <div class="region-title">${regionName}</div>
-                <div class="region-stats">
-                    <div class="region-stat">
-                        <div class="region-stat-number">${stats.orders}</div>
-                        <div class="region-stat-label">受注件数</div>
+            <div class="pdf-region-card">
+                <div class="pdf-region-name">${regionName}</div>
+                <div class="pdf-region-stats">
+                    <div class="pdf-region-stat-item">
+                        <div class="pdf-region-stat-value">${stats.orders || 0}</div>
+                        <div class="pdf-region-stat-label">受注件数</div>
                     </div>
-                    <div class="region-stat">
-                        <div class="region-stat-number">${stats.overtime}</div>
-                        <div class="region-stat-label">時間外対応</div>
+                    <div class="pdf-region-stat-item">
+                        <div class="pdf-region-stat-value">${stats.overtime || 0}</div>
+                        <div class="pdf-region-stat-label">時間外対応</div>
                     </div>
-                    <div class="region-stat">
-                        <div class="region-stat-number">${stats.excessive}</div>
-                        <div class="region-stat-label">過量販売</div>
+                    <div class="pdf-region-stat-item">
+                        <div class="pdf-region-stat-value">${stats.excessive || 0}</div>
+                        <div class="pdf-region-stat-label">過量販売</div>
                     </div>
-                    <div class="region-stat">
-                        <div class="region-stat-number">${stats.single}</div>
-                        <div class="region-stat-label">単独契約</div>
+                    <div class="pdf-region-stat-item">
+                        <div class="pdf-region-stat-value">${stats.single || 0}</div>
+                        <div class="pdf-region-stat-label">単独契約</div>
                     </div>
-                    <div class="region-stat">
-                        <div class="region-stat-number">${stats.holidayConstruction}</div>
-                        <div class="region-stat-label">公休日施工</div>
+                    <div class="pdf-region-stat-item">
+                        <div class="pdf-region-stat-value">${stats.holidayConstruction || 0}</div>
+                        <div class="pdf-region-stat-label">公休日施工</div>
                     </div>
-                    <div class="region-stat">
-                        <div class="region-stat-number">${stats.prohibitedConstruction}</div>
-                        <div class="region-stat-label">禁止日施工</div>
+                    <div class="pdf-region-stat-item">
+                        <div class="pdf-region-stat-value">${stats.prohibitedConstruction || 0}</div>
+                        <div class="pdf-region-stat-label">禁止日施工</div>
                     </div>
                 </div>
             </div>
         `;
     }
-    // 月報PDF用HTML（2枚構成）
+    // PDF用年齢統計HTML
+    createAgeStatsPDFHTML(ageStats) {
+        if (!ageStats) {
+            return '<div class="text-center text-muted py-3">年齢データがありません</div>';
+        }
+        const html = `
+            <div class="pdf-age-grid">
+                <div class="pdf-age-card">
+                    <div class="pdf-age-title">高齢者（70歳以上）</div>
+                    <div class="pdf-age-stats">
+                        <div class="pdf-age-stat-item">
+                            <div class="pdf-age-stat-value">${ageStats.elderly?.total || 0}</div>
+                            <div class="pdf-age-stat-label">総件数</div>
+                        </div>
+                        <div class="pdf-age-stat-item">
+                            <div class="pdf-age-stat-value">${ageStats.elderly?.excessive || 0}</div>
+                            <div class="pdf-age-stat-label">過量販売</div>
+                        </div>
+                        <div class="pdf-age-stat-item">
+                            <div class="pdf-age-stat-value">${ageStats.elderly?.single || 0}</div>
+                            <div class="pdf-age-stat-label">単独契約</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="pdf-age-card">
+                    <div class="pdf-age-title">通常年齢（69歳以下）</div>
+                    <div class="pdf-age-stats">
+                        <div class="pdf-age-stat-item">
+                            <div class="pdf-age-stat-value">${ageStats.normal?.total || 0}</div>
+                            <div class="pdf-age-stat-label">総件数</div>
+                        </div>
+                        <div class="pdf-age-stat-item">
+                            <div class="pdf-age-stat-value">${ageStats.normal?.excessive || 0}</div>
+                            <div class="pdf-age-stat-label">過量販売</div>
+                        </div>
+                        <div class="pdf-age-stat-item">
+                            <div class="pdf-age-stat-value">${ageStats.normal?.single || 0}</div>
+                            <div class="pdf-age-stat-label">単独契約</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        return html;
+    }
+    // 月報PDF用HTML（4ページ構成）
     createMonthlyReportPDFHTML(report) {
         // 選択された月から年月を取得
-        const selectedDate = report.selectedMonth ? new Date(report.selectedMonth + '-01') : new Date();
-        const monthText = selectedDate.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' });
-        return `
-            <!-- 1枚目: 基本統計（ランキングなし） -->
-            <div class="report-section" style="padding-top: 0; page-break-after: always; page-break-inside: avoid;">
-                <h3 class="report-title" style="margin-top: 0;">
-                    <i class="fas fa-calendar-alt me-2"></i>月報 - ${monthText}
-                </h3>
+        let monthText = '';
+        if (report.selectedYear && report.selectedMonth) {
+            monthText = `${report.selectedYear}年${report.selectedMonth}月`;
+        }
+        else {
+            const now = new Date();
+            monthText = `${now.getFullYear()}年${now.getMonth() + 1}月`;
+        }
+        let html = '';
+        // 1枚目: 基本統計セクション
+        const firstPage = `
+            <div class="pdf-page" data-page="1枚目: 基本統計">
+                <div class="pdf-header">
+                    <div class="pdf-title">月報</div>
+                    <div class="pdf-date">${monthText}</div>
+                </div>
                 
                 <!-- 基本統計 -->
-                <div class="mb-4">
-                    <div class="total-stats-container">
-                        <h5 class="total-stats-title"><i class="fas fa-chart-bar me-2"></i>総件数</h5>
-                        <div class="total-stats-grid">
-                            <div class="total-stat-item">
-                                <div class="total-stat-number">${report.totalOrders}</div>
-                                <div class="total-stat-label">受注件数</div>
+                <div class="pdf-section">
+                    <div class="pdf-section-title">総件数</div>
+                    <div class="pdf-total-stats-container">
+                        <div class="pdf-total-stats-grid">
+                            <div class="pdf-total-stat-item">
+                                <div class="pdf-total-stat-number">${report.totalOrders || 0}</div>
+                                <div class="pdf-total-stat-label">受注件数</div>
                             </div>
-                            <div class="total-stat-item">
-                                <div class="total-stat-number">${report.overtimeOrders}</div>
-                                <div class="total-stat-label">時間外対応</div>
+                            <div class="pdf-total-stat-item">
+                                <div class="pdf-total-stat-number">${report.overtimeOrders || 0}</div>
+                                <div class="pdf-total-stat-label">時間外対応</div>
                             </div>
-                            <div class="total-stat-item">
-                                <div class="total-stat-number">${this.getTotalExcessive(report.regionStats)}</div>
-                                <div class="total-stat-label">過量販売</div>
+                            <div class="pdf-total-stat-item">
+                                <div class="pdf-total-stat-number">${this.getTotalExcessive(report.regionStats || {}) || 0}</div>
+                                <div class="pdf-total-stat-label">過量販売</div>
                             </div>
-                            <div class="total-stat-item">
-                                <div class="total-stat-number">${this.getTotalSingle(report.regionStats)}</div>
-                                <div class="total-stat-label">単独契約</div>
+                            <div class="pdf-total-stat-item">
+                                <div class="pdf-total-stat-number">${this.getTotalSingle(report.regionStats || {}) || 0}</div>
+                                <div class="pdf-total-stat-label">単独契約</div>
                             </div>
-                            <div class="total-stat-item">
-                                <div class="total-stat-number">${this.getTotalHolidayConstruction(report.regionStats)}</div>
-                                <div class="total-stat-label">公休日施工</div>
+                            <div class="pdf-total-stat-item">
+                                <div class="pdf-total-stat-number">${this.getTotalHolidayConstruction(report.regionStats || {}) || 0}</div>
+                                <div class="pdf-total-stat-label">公休日施工</div>
                             </div>
-                            <div class="total-stat-item">
-                                <div class="total-stat-number">${this.getTotalProhibitedConstruction(report.regionStats)}</div>
-                                <div class="total-stat-label">禁止日施工</div>
+                            <div class="pdf-total-stat-item">
+                                <div class="pdf-total-stat-number">${this.getTotalProhibitedConstruction(report.regionStats || {}) || 0}</div>
+                                <div class="pdf-total-stat-label">禁止日施工</div>
                             </div>
                         </div>
                     </div>
                 </div>
                 
                 <!-- 地区別受注件数 -->
-                <div class="mb-4">
-                    <h5 class="mb-3"><i class="fas fa-map-marker-alt me-2"></i>地区別受注件数</h5>
-                    ${this.createRegionStatsPDFHTML(report.regionStats)}
+                <div class="pdf-section">
+                    <div class="pdf-section-title">地区別受注件数</div>
+                    ${this.createRegionStatsPDFHTML(report.regionStats || {})}
                 </div>
                 
                 <!-- 年齢別集計 -->
-                <div class="mb-4">
-                    <h5 class="mb-3"><i class="fas fa-users me-2"></i>年齢別集計</h5>
-                    ${this.createAgeStatsHTML(report.ageStats)}
+                <div class="pdf-section">
+                    <div class="pdf-section-title">年齢別集計</div>
+                    ${this.createAgeStatsPDFHTML(report.ageStats || {})}
                 </div>
             </div>
-            
-            <!-- 強制ページ区切り -->
-            <div style="page-break-before: always; height: 0; margin: 0; padding: 0;"></div>
-            
-            <!-- 2枚目: ランキングのみ -->
-            <div class="report-section" style="padding-top: 0; page-break-before: always; page-break-after: avoid; page-break-inside: avoid;">
-                <h3 class="report-title" style="margin-top: 0;">
-                    <i class="fas fa-trophy me-2"></i>担当者別ランキング - ${monthText}
-                </h3>
+        `;
+        html += firstPage;
+        // 2枚目: ①高齢者契約ランキング
+        if (report.elderlyStaffRanking && report.elderlyStaffRanking.length > 0) {
+            html += `
+                <!-- ページ区切り -->
+                <div class="pdf-page-break"></div>
                 
-                ${report.elderlyStaffRanking ? `
-                <!-- ①契約者70歳以上の受注件数トップ10ランキング -->
-                <div class="ranking-section mb-4">
-                    <h5 class="ranking-title">①契約者70歳以上の受注件数トップ10ランキング</h5>
-                    ${this.createRankingTableHTML(report.elderlyStaffRanking)}
+                <!-- 2枚目: ①高齢者契約ランキング -->
+                <div class="pdf-page" data-page="2枚目: ①高齢者契約ランキング">
+                    <div class="pdf-header">
+                        <div class="pdf-title">担当者別ランキング</div>
+                        <div class="pdf-date">${monthText}</div>
+                    </div>
+                    
+                    <div class="pdf-ranking-section">
+                        <div class="pdf-ranking-title">①契約者70歳以上の受注件数トップ10ランキング</div>
+                        ${this.createRankingTablePDFHTML(report.elderlyStaffRanking)}
+                </div>
+                </div>
+            `;
+        }
+        else {
+            html += `
+                <!-- ページ区切り -->
+                <div class="pdf-page-break"></div>
+                
+                <!-- 2枚目: ①高齢者契約ランキング -->
+                <div class="pdf-page" data-page="2枚目: ①高齢者契約ランキング">
+                    <div class="pdf-header">
+                        <div class="pdf-title">担当者別ランキング</div>
+                        <div class="pdf-date">${monthText}</div>
                 </div>
 
-                <!-- ②単独契約を持っている担当者一覧 -->
-                <div class="ranking-section mb-4">
-                    <h5 class="ranking-title">②単独契約を持っている担当者一覧</h5>
-                    ${this.createRankingTableHTML(report.singleContractRanking)}
+                    <div class="pdf-ranking-section">
+                        <div class="pdf-ranking-title">①契約者70歳以上の受注件数トップ10ランキング</div>
+                        <div class="text-center text-muted py-3">データがありません</div>
                 </div>
-
-                <!-- ③過量契約を持っている担当者一覧 -->
-                <div class="ranking-section mb-4">
-                    <h5 class="ranking-title">③過量契約を持っている担当者一覧</h5>
-                    ${this.createRankingTableHTML(report.excessiveSalesRanking)}
                 </div>
-
-                <!-- ④69歳以下契約件数の担当別件数 -->
-                <div class="ranking-section mb-4">
-                    <h5 class="ranking-title">④69歳以下契約件数の担当別件数</h5>
-                    ${this.createRankingTableHTML(report.normalAgeStaffRanking)}
+            `;
+        }
+        // 3枚目: ②単独契約ランキング
+        if (report.singleContractRanking && report.singleContractRanking.length > 0) {
+            html += `
+                <!-- ページ区切り -->
+                <div class="pdf-page-break"></div>
+                
+                <!-- 3枚目: ②単独契約ランキング -->
+                <div class="pdf-page" data-page="3枚目: ②単独契約ランキング">
+                    <div class="pdf-header">
+                        <div class="pdf-title">担当者別ランキング</div>
+                        <div class="pdf-date">${monthText}</div>
                 </div>
-                ` : '<p>ランキングデータがありません</p>'}
+                    
+                    <div class="pdf-ranking-section">
+                        <div class="pdf-ranking-title">②単独契約を持っている担当者一覧</div>
+                        ${this.createRankingTablePDFHTML(report.singleContractRanking)}
+                    </div>
+                </div>
+            `;
+        }
+        else {
+            html += `
+                <!-- ページ区切り -->
+                <div class="pdf-page-break"></div>
+                
+                <!-- 3枚目: ②単独契約ランキング -->
+                <div class="pdf-page" data-page="3枚目: ②単独契約ランキング">
+                    <div class="pdf-header">
+                        <div class="pdf-title">担当者別ランキング</div>
+                        <div class="pdf-date">${monthText}</div>
+                    </div>
+                    
+                    <div class="pdf-ranking-section">
+                        <div class="pdf-ranking-title">②単独契約を持っている担当者一覧</div>
+                        <div class="text-center text-muted py-3">データがありません</div>
+                    </div>
+                </div>
+            `;
+        }
+        // 4枚目: ③過量販売ランキング
+        if (report.excessiveSalesRanking && report.excessiveSalesRanking.length > 0) {
+            html += `
+                <!-- ページ区切り -->
+                <div class="pdf-page-break"></div>
+                
+                <!-- 4枚目: ③過量販売ランキング -->
+                <div class="pdf-page" data-page="4枚目: ③過量販売ランキング">
+                    <div class="pdf-header">
+                        <div class="pdf-title">担当者別ランキング</div>
+                        <div class="pdf-date">${monthText}</div>
+                    </div>
+                    
+                    <div class="pdf-ranking-section">
+                        <div class="pdf-ranking-title">③過量契約を持っている担当者一覧</div>
+                        ${this.createRankingTablePDFHTML(report.excessiveSalesRanking)}
+                    </div>
+                </div>
+            `;
+        }
+        else {
+            html += `
+                <!-- ページ区切り -->
+                <div class="pdf-page-break"></div>
+                
+                <!-- 4枚目: ③過量販売ランキング -->
+                <div class="pdf-page" data-page="4枚目: ③過量販売ランキング">
+                    <div class="pdf-header">
+                        <div class="pdf-title">担当者別ランキング</div>
+                        <div class="pdf-date">${monthText}</div>
+                    </div>
+                    
+                    <div class="pdf-ranking-section">
+                        <div class="pdf-ranking-title">③過量契約を持っている担当者一覧</div>
+                        <div class="text-center text-muted py-3">データがありません</div>
+                    </div>
+                </div>
+            `;
+        }
+        return html;
+    }
+    // PDF用ランキングテーブルHTML
+    createRankingTablePDFHTML(ranking) {
+        if (!ranking || ranking.length === 0) {
+            return '<div class="text-center text-muted py-3">データがありません</div>';
+        }
+        return `
+            <div class="pdf-ranking-table">
+                <div class="pdf-ranking-header">
+                    <div class="pdf-ranking-cell">ランキング</div>
+                    <div class="pdf-ranking-cell">地区No.</div>
+                    <div class="pdf-ranking-cell">所属No.</div>
+                    <div class="pdf-ranking-cell">担当名</div>
+                    <div class="pdf-ranking-cell">件数</div>
+                </div>
+                ${ranking.map((staff) => `
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">${staff.rank || '-'}</div>
+                        <div class="pdf-ranking-cell">${staff.regionNo || '-'}</div>
+                        <div class="pdf-ranking-cell">${staff.departmentNo || '-'}</div>
+                        <div class="pdf-ranking-cell">${staff.staffName || '-'}</div>
+                        <div class="pdf-ranking-cell">${staff.count || 0}</div>
+                    </div>
+                `).join('')}
             </div>
         `;
     }

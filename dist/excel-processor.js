@@ -275,10 +275,6 @@ export class ExcelProcessor {
                     return false;
                 }
             }
-            // デバッグログ
-            if (Math.random() < 0.1) { // 10%の確率でログ出力
-                console.log(`受注として判定: ${row.staffName}, date=${row.date}, monthMatch=true`);
-            }
             return true;
         }
         // 日付単位での判定（日報の場合）

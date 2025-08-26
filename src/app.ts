@@ -714,11 +714,6 @@ export class App {
             const year = firstRow.date.getFullYear();
             const month = firstRow.date.getMonth();
             const targetDate = new Date(year, month, 15); // 月の15日を基準に設定
-            console.log(`ドロップデータからtargetDate設定: 元データ=${firstRow.date.toISOString()}, 年=${year}, 月=${month}, targetDate=${targetDate.toISOString()}`);
-            
-            // データの月分布を確認
-            const monthDistribution = this.getMonthDistribution(rawData);
-            console.log('データの月分布:', monthDistribution);
             
             const staffData = this.reportGenerator.generateStaffData(rawData, targetDate);
             
@@ -738,7 +733,6 @@ export class App {
     // 担当別データを月報データで更新
     private updateStaffDataWithMonthlyData(monthlyData: any[], monthString: string): void {
         if (monthlyData.length === 0) {
-            console.log('月報データがありません');
             return;
         }
 
@@ -748,11 +742,6 @@ export class App {
             const year = firstRow.date.getFullYear();
             const month = firstRow.date.getMonth();
             const targetDate = new Date(year, month, 15); // 月の15日を基準に設定
-            console.log(`月報データからtargetDate設定: 月報データ=${firstRow.date.toISOString()}, 年=${year}, 月=${month}, targetDate=${targetDate.toISOString()}`);
-            
-            // データの月分布を確認
-            const monthDistribution = this.getMonthDistribution(monthlyData);
-            console.log('月報データの月分布:', monthDistribution);
             
             const staffData = this.reportGenerator.generateStaffData(monthlyData, targetDate);
             
@@ -764,8 +753,6 @@ export class App {
             }
             
             this.setupStaffDataSearchAndSort();
-        } else {
-            console.log('月報データから日付を取得できません');
         }
     }
 

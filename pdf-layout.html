@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDFレイアウトテスト</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* PDF出力専用スタイル */
+        body {
+            font-family: 'Arial', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+            margin: 0;
+            padding: 10mm;
+            background: white;
+            color: #000000;
+            font-size: 12pt;
+            line-height: 1.4;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        /* A4サイズ固定レイアウト */
+        .pdf-page {
+            width: 190mm;
+            min-height: 277mm;
+            margin: 0 auto;
+            background: white;
+            box-sizing: border-box;
+            border: 2px dashed #ff4444;
+            position: relative;
+        }
+
+        /* ページ番号表示 */
+        .pdf-page::before {
+            content: attr(data-page);
+            position: absolute;
+            top: -15px;
+            left: 0;
+            background: #ff4444;
+            color: white;
+            padding: 5px 10px;
+            font-size: 12pt;
+            font-weight: bold;
+            border-radius: 3px;
+        }
+
+        /* 印刷可能領域のガイド */
+        .pdf-print-guide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 1px solid #cccccc;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .pdf-print-guide::after {
+            content: "A4印刷可能領域: 190mm × 277mm";
+            position: absolute;
+            top: -20px;
+            left: 0;
+            background: #cccccc;
+            color: #333;
+            padding: 2px 5px;
+            font-size: 9pt;
+            border-radius: 2px;
+        }
+
+        /* ヘッダー */
+        .pdf-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #333333;
+        }
+
+        .pdf-title {
+            font-size: 24pt;
+            font-weight: bold;
+            color: #000000;
+            margin-bottom: 10px;
+        }
+
+        .pdf-date {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #000000;
+        }
+
+        /* セクション */
+        .pdf-section {
+            margin-bottom: 30px;
+            page-break-inside: avoid;
+        }
+
+        .pdf-section-title {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #000000;
+            margin-bottom: 20px;
+            padding: 10px 15px;
+            background: #f0f0f0;
+            border-left: 5px solid #333333;
+            border-bottom: 2px solid #333333;
+        }
+
+        /* 総件数統計 */
+        .pdf-total-stats-container {
+            background: #f8f9fa;
+            border: 2px solid #333333;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+
+        .pdf-total-stats-title {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #000000;
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #333333;
+        }
+
+        .pdf-total-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .pdf-total-stat-item {
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border: 2px solid #333333;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .pdf-total-stat-number {
+            font-size: 20pt;
+            font-weight: bold;
+            color: #000000;
+            margin-bottom: 8px;
+        }
+
+        .pdf-total-stat-label {
+            font-size: 12pt;
+            font-weight: bold;
+            color: #000000;
+        }
+
+        /* 地区別統計 */
+        .pdf-region-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .pdf-region-card {
+            background: white;
+            border: 2px solid #333333;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .pdf-region-name {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #000000;
+            text-align: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+            border-bottom: 2px solid #333333;
+        }
+
+        .pdf-region-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .pdf-region-stat-item {
+            text-align: center;
+            padding: 4px;
+        }
+
+        .pdf-region-stat-value {
+            font-size: 10pt;
+            font-weight: bold;
+            color: #000000;
+            margin-bottom: 2px;
+        }
+
+        .pdf-region-stat-label {
+            font-size: 8pt;
+            font-weight: bold;
+            color: #000000;
+        }
+
+        /* 年齢別統計 */
+        .pdf-age-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .pdf-age-card {
+            background: white;
+            border: 2px solid #333333;
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .pdf-age-title {
+            font-size: 10pt;
+            font-weight: bold;
+            color: #000000;
+            text-align: center;
+            margin-bottom: 8px;
+            padding: 6px;
+            background: #e9ecef;
+            border-radius: 4px;
+            border-bottom: 2px solid #333333;
+        }
+
+        .pdf-age-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .pdf-age-stat-item {
+            text-align: center;
+            padding: 4px;
+        }
+
+        .pdf-age-stat-value {
+            font-size: 10pt;
+            font-weight: bold;
+            color: #000000;
+            margin-bottom: 2px;
+        }
+
+        .pdf-age-stat-label {
+            font-size: 8pt;
+            font-weight: bold;
+            color: #000000;
+        }
+
+        /* ランキング */
+        .pdf-ranking-section {
+            margin-bottom: 25px;
+            page-break-inside: avoid;
+        }
+
+        .pdf-ranking-title {
+            font-size: 14pt;
+            font-weight: bold;
+            color: #000000;
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            background: #e9ecef;
+            border-left: 5px solid #333333;
+            border-bottom: 2px solid #333333;
+        }
+
+        .pdf-ranking-table {
+            border: 2px solid #333333;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .pdf-ranking-header {
+            display: grid;
+            grid-template-columns: 80px 80px 80px 200px 80px;
+            background: #333333;
+            color: white;
+            font-weight: bold;
+        }
+
+        .pdf-ranking-row {
+            display: grid;
+            grid-template-columns: 80px 80px 80px 200px 80px;
+            border-bottom: 1px solid #333333;
+        }
+
+        .pdf-ranking-row:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .pdf-ranking-cell {
+            padding: 8px 6px;
+            text-align: center;
+            font-size: 9pt;
+            font-weight: bold;
+            color: #000000;
+            border-right: 1px solid #333333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.2;
+        }
+
+        .pdf-ranking-cell:last-child {
+            border-right: none;
+        }
+
+        /* ページ区切り */
+        .pdf-page-break {
+            page-break-before: always;
+            height: 0;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 印刷時のスタイル調整 */
+        @media print {
+            body {
+                margin: 0;
+                padding: 10mm;
+            }
+
+            .pdf-page {
+                width: 100%;
+                margin: 0;
+                min-height: auto;
+                border: none !important;
+            }
+
+            .pdf-page::before {
+                display: none !important;
+            }
+
+            .pdf-print-guide {
+                display: none !important;
+            }
+
+            .debug-info {
+                display: none !important;
+            }
+
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+
+        /* デバッグ用スタイル */
+        .debug-info {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ccc;
+            padding: 10px;
+            font-size: 10pt;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-info">
+        <div><strong>A4サイズ: 210mm × 297mm</strong></div>
+        <div>印刷可能領域: 190mm × 277mm</div>
+        <div>余白: 10mm</div>
+        <div>解像度: 794px × 1123px</div>
+        <div><strong>赤い破線: 印刷範囲の境界</strong></div>
+        <div><strong>灰色枠: 印刷可能領域ガイド</strong></div>
+        <div style="margin-top: 10px; font-size: 11pt;">
+            <div><strong>4ページ構成:</strong></div>
+            <div>1枚目: 総件数・地区別・年齢別統計</div>
+            <div>2枚目: ①高齢者契約ランキング（10人）</div>
+            <div>3枚目: ②単独契約ランキング（30人）</div>
+            <div>4枚目: ③過量販売ランキング（30人）</div>
+        </div>
+    </div>
+
+    <!-- PDFレイアウトテスト - 1枚目 -->
+    <div class="pdf-page" data-page="1枚目: 基本統計">
+        <div class="pdf-print-guide"></div>
+        <div class="pdf-header">
+            <div class="pdf-title">日報</div>
+            <div class="pdf-date">2024年12月20日</div>
+        </div>
+
+        <!-- 基本統計 -->
+        <div class="pdf-section">
+            <div class="pdf-section-title">総件数</div>
+            <div class="pdf-total-stats-container">
+                <div class="pdf-total-stats-grid">
+                    <div class="pdf-total-stat-item">
+                        <div class="pdf-total-stat-number">47</div>
+                        <div class="pdf-total-stat-label">受注件数</div>
+                    </div>
+                    <div class="pdf-total-stat-item">
+                        <div class="pdf-total-stat-number">8</div>
+                        <div class="pdf-total-stat-label">時間外対応</div>
+                    </div>
+                    <div class="pdf-total-stat-item">
+                        <div class="pdf-total-stat-number">3</div>
+                        <div class="pdf-total-stat-label">過量販売</div>
+                    </div>
+                    <div class="pdf-total-stat-item">
+                        <div class="pdf-total-stat-number">2</div>
+                        <div class="pdf-total-stat-label">単独契約</div>
+                    </div>
+                    <div class="pdf-total-stat-item">
+                        <div class="pdf-total-stat-number">1</div>
+                        <div class="pdf-total-stat-label">公休日施工</div>
+                    </div>
+                    <div class="pdf-total-stat-item">
+                        <div class="pdf-total-stat-number">0</div>
+                        <div class="pdf-total-stat-label">禁止日施工</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 地区別受注件数 -->
+        <div class="pdf-section">
+            <div class="pdf-section-title">地区別受注件数</div>
+            <div class="pdf-region-grid">
+                <div class="pdf-region-card">
+                    <div class="pdf-region-name">九州地区</div>
+                    <div class="pdf-region-stats">
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">25</div>
+                            <div class="pdf-region-stat-label">受注件数</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">4</div>
+                            <div class="pdf-region-stat-label">時間外対応</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">2</div>
+                            <div class="pdf-region-stat-label">過量販売</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">1</div>
+                            <div class="pdf-region-stat-label">単独契約</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">0</div>
+                            <div class="pdf-region-stat-label">公休日施工</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">0</div>
+                            <div class="pdf-region-stat-label">禁止日施工</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pdf-region-card">
+                    <div class="pdf-region-name">中四国地区</div>
+                    <div class="pdf-region-stats">
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">12</div>
+                            <div class="pdf-region-stat-label">受注件数</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">2</div>
+                            <div class="pdf-region-stat-label">時間外対応</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">1</div>
+                            <div class="pdf-region-stat-label">過量販売</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">0</div>
+                            <div class="pdf-region-stat-label">単独契約</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">1</div>
+                            <div class="pdf-region-stat-label">公休日施工</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">0</div>
+                            <div class="pdf-region-stat-label">禁止日施工</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pdf-region-grid">
+                <div class="pdf-region-card">
+                    <div class="pdf-region-name">関西地区</div>
+                    <div class="pdf-region-stats">
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">8</div>
+                            <div class="pdf-region-stat-label">受注件数</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">1</div>
+                            <div class="pdf-region-stat-label">時間外対応</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">0</div>
+                            <div class="pdf-region-stat-label">過量販売</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">1</div>
+                            <div class="pdf-region-stat-label">単独契約</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">0</div>
+                            <div class="pdf-region-stat-label">公休日施工</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">0</div>
+                            <div class="pdf-region-stat-label">禁止日施工</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pdf-region-card">
+                    <div class="pdf-region-name">関東地区</div>
+                    <div class="pdf-region-stats">
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">2</div>
+                            <div class="pdf-region-stat-label">受注件数</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">1</div>
+                            <div class="pdf-region-stat-label">時間外対応</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">0</div>
+                            <div class="pdf-region-stat-label">過量販売</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">0</div>
+                            <div class="pdf-region-stat-label">単独契約</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">0</div>
+                            <div class="pdf-region-stat-label">公休日施工</div>
+                        </div>
+                        <div class="pdf-region-stat-item">
+                            <div class="pdf-region-stat-value">0</div>
+                            <div class="pdf-region-stat-label">禁止日施工</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 年齢別集計 -->
+        <div class="pdf-section">
+            <div class="pdf-section-title">年齢別集計</div>
+            <div class="pdf-age-grid">
+                <div class="pdf-age-card">
+                    <div class="pdf-age-title">高齢者（70歳以上）</div>
+                    <div class="pdf-age-stats">
+                        <div class="pdf-age-stat-item">
+                            <div class="pdf-age-stat-value">15</div>
+                            <div class="pdf-age-stat-label">総件数</div>
+                        </div>
+                        <div class="pdf-age-stat-item">
+                            <div class="pdf-age-stat-value">2</div>
+                            <div class="pdf-age-stat-label">過量販売</div>
+                        </div>
+                        <div class="pdf-age-stat-item">
+                            <div class="pdf-age-stat-value">1</div>
+                            <div class="pdf-age-stat-label">単独契約</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pdf-age-card">
+                    <div class="pdf-age-title">通常年齢（69歳以下）</div>
+                    <div class="pdf-age-stats">
+                        <div class="pdf-age-stat-item">
+                            <div class="pdf-age-stat-value">32</div>
+                            <div class="pdf-age-stat-label">総件数</div>
+                        </div>
+                        <div class="pdf-age-stat-item">
+                            <div class="pdf-age-stat-value">1</div>
+                            <div class="pdf-age-stat-label">過量販売</div>
+                        </div>
+                        <div class="pdf-age-stat-item">
+                            <div class="pdf-age-stat-value">1</div>
+                            <div class="pdf-age-stat-label">単独契約</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+            <!-- ページ区切り -->
+        <div class="pdf-page-break"></div>
+
+        <!-- 2枚目: ①高齢者契約ランキング -->
+        <div class="pdf-page" data-page="2枚目: ①高齢者契約ランキング">
+            <div class="pdf-print-guide"></div>
+            <div class="pdf-header">
+                <div class="pdf-title">担当者別ランキング</div>
+                <div class="pdf-date">2024年12月20日</div>
+            </div>
+
+            <!-- ①契約者70歳以上の受注件数トップ10ランキング -->
+            <div class="pdf-ranking-section">
+                <div class="pdf-ranking-title">①契約者70歳以上の受注件数トップ10ランキング</div>
+                <div class="pdf-ranking-table">
+                    <div class="pdf-ranking-header">
+                        <div class="pdf-ranking-cell">ランキング</div>
+                        <div class="pdf-ranking-cell">地区No.</div>
+                        <div class="pdf-ranking-cell">所属No.</div>
+                        <div class="pdf-ranking-cell">担当名</div>
+                        <div class="pdf-ranking-cell">件数</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">1</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">101</div>
+                        <div class="pdf-ranking-cell">山田太郎</div>
+                        <div class="pdf-ranking-cell">8</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">2</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">102</div>
+                        <div class="pdf-ranking-cell">鈴木花子</div>
+                        <div class="pdf-ranking-cell">6</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">3</div>
+                        <div class="pdf-ranking-cell">521</div>
+                        <div class="pdf-ranking-cell">201</div>
+                        <div class="pdf-ranking-cell">佐藤次郎</div>
+                        <div class="pdf-ranking-cell">5</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">4</div>
+                        <div class="pdf-ranking-cell">541</div>
+                        <div class="pdf-ranking-cell">301</div>
+                        <div class="pdf-ranking-cell">田中三郎</div>
+                        <div class="pdf-ranking-cell">4</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">5</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">103</div>
+                        <div class="pdf-ranking-cell">高橋四郎</div>
+                        <div class="pdf-ranking-cell">3</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">6</div>
+                        <div class="pdf-ranking-cell">561</div>
+                        <div class="pdf-ranking-cell">401</div>
+                        <div class="pdf-ranking-cell">渡辺次郎</div>
+                        <div class="pdf-ranking-cell">3</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">7</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">104</div>
+                        <div class="pdf-ranking-cell">伊藤三郎</div>
+                        <div class="pdf-ranking-cell">2</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">8</div>
+                        <div class="pdf-ranking-cell">521</div>
+                        <div class="pdf-ranking-cell">202</div>
+                        <div class="pdf-ranking-cell">小林四郎</div>
+                        <div class="pdf-ranking-cell">2</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">9</div>
+                        <div class="pdf-ranking-cell">541</div>
+                        <div class="pdf-ranking-cell">302</div>
+                        <div class="pdf-ranking-cell">加藤五郎</div>
+                        <div class="pdf-ranking-cell">2</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">10</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">105</div>
+                        <div class="pdf-ranking-cell">吉田六郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ページ区切り -->
+        <div class="pdf-page-break"></div>
+
+        <!-- 3枚目: ②単独契約ランキング -->
+        <div class="pdf-page" data-page="3枚目: ②単独契約ランキング">
+            <div class="pdf-print-guide"></div>
+            <div class="pdf-header">
+                <div class="pdf-title">担当者別ランキング</div>
+                <div class="pdf-date">2024年12月20日</div>
+            </div>
+
+            <!-- ②単独契約を持っている担当者一覧 -->
+            <div class="pdf-ranking-section">
+                <div class="pdf-ranking-title">②単独契約を持っている担当者一覧</div>
+                <div class="pdf-ranking-table">
+                    <div class="pdf-ranking-header">
+                        <div class="pdf-ranking-cell">ランキング</div>
+                        <div class="pdf-ranking-cell">地区No.</div>
+                        <div class="pdf-ranking-cell">所属No.</div>
+                        <div class="pdf-ranking-cell">担当名</div>
+                        <div class="pdf-ranking-cell">件数</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">1</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">101</div>
+                        <div class="pdf-ranking-cell">山田太郎</div>
+                        <div class="pdf-ranking-cell">2</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">2</div>
+                        <div class="pdf-ranking-cell">541</div>
+                        <div class="pdf-ranking-cell">301</div>
+                        <div class="pdf-ranking-cell">田中三郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">3</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">102</div>
+                        <div class="pdf-ranking-cell">鈴木花子</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">4</div>
+                        <div class="pdf-ranking-cell">521</div>
+                        <div class="pdf-ranking-cell">201</div>
+                        <div class="pdf-ranking-cell">佐藤次郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <!-- 以下、30人分のサンプルデータを生成 -->
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">5</div>
+                        <div class="pdf-ranking-cell">561</div>
+                        <div class="pdf-ranking-cell">401</div>
+                        <div class="pdf-ranking-cell">渡辺次郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">6</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">103</div>
+                        <div class="pdf-ranking-cell">高橋四郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">7</div>
+                        <div class="pdf-ranking-cell">541</div>
+                        <div class="pdf-ranking-cell">302</div>
+                        <div class="pdf-ranking-cell">伊藤三郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">8</div>
+                        <div class="pdf-ranking-cell">521</div>
+                        <div class="pdf-ranking-cell">202</div>
+                        <div class="pdf-ranking-cell">小林四郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">9</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">104</div>
+                        <div class="pdf-ranking-cell">加藤五郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">10</div>
+                        <div class="pdf-ranking-cell">561</div>
+                        <div class="pdf-ranking-cell">402</div>
+                        <div class="pdf-ranking-cell">吉田六郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <!-- 11-30行: 実際の30人分のデータを追加 -->
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">11</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">105</div>
+                        <div class="pdf-ranking-cell">中村七郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">12</div>
+                        <div class="pdf-ranking-cell">521</div>
+                        <div class="pdf-ranking-cell">203</div>
+                        <div class="pdf-ranking-cell">小林八郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">13</div>
+                        <div class="pdf-ranking-cell">541</div>
+                        <div class="pdf-ranking-cell">303</div>
+                        <div class="pdf-ranking-cell">加藤九郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">14</div>
+                        <div class="pdf-ranking-cell">561</div>
+                        <div class="pdf-ranking-cell">403</div>
+                        <div class="pdf-ranking-cell">鈴木十郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">15</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">106</div>
+                        <div class="pdf-ranking-cell">田中十一郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">16</div>
+                        <div class="pdf-ranking-cell">521</div>
+                        <div class="pdf-ranking-cell">204</div>
+                        <div class="pdf-ranking-cell">佐藤十二郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">17</div>
+                        <div class="pdf-ranking-cell">541</div>
+                        <div class="pdf-ranking-cell">304</div>
+                        <div class="pdf-ranking-cell">高橋十三郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">18</div>
+                        <div class="pdf-ranking-cell">561</div>
+                        <div class="pdf-ranking-cell">404</div>
+                        <div class="pdf-ranking-cell">伊藤十四郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">19</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">107</div>
+                        <div class="pdf-ranking-cell">渡辺十五郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">20</div>
+                        <div class="pdf-ranking-cell">521</div>
+                        <div class="pdf-ranking-cell">205</div>
+                        <div class="pdf-ranking-cell">山本十六郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">21</div>
+                        <div class="pdf-ranking-cell">541</div>
+                        <div class="pdf-ranking-cell">305</div>
+                        <div class="pdf-ranking-cell">中島十七郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">22</div>
+                        <div class="pdf-ranking-cell">561</div>
+                        <div class="pdf-ranking-cell">405</div>
+                        <div class="pdf-ranking-cell">小川十八郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">23</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">108</div>
+                        <div class="pdf-ranking-cell">松本十九郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">24</div>
+                        <div class="pdf-ranking-cell">521</div>
+                        <div class="pdf-ranking-cell">206</div>
+                        <div class="pdf-ranking-cell">井上二十郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">25</div>
+                        <div class="pdf-ranking-cell">541</div>
+                        <div class="pdf-ranking-cell">306</div>
+                        <div class="pdf-ranking-cell">木村二十一郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">26</div>
+                        <div class="pdf-ranking-cell">561</div>
+                        <div class="pdf-ranking-cell">406</div>
+                        <div class="pdf-ranking-cell">林二十二郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">27</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">109</div>
+                        <div class="pdf-ranking-cell">清水二十三郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">28</div>
+                        <div class="pdf-ranking-cell">521</div>
+                        <div class="pdf-ranking-cell">207</div>
+                        <div class="pdf-ranking-cell">山田二十四郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">29</div>
+                        <div class="pdf-ranking-cell">541</div>
+                        <div class="pdf-ranking-cell">307</div>
+                        <div class="pdf-ranking-cell">佐々木二十五郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">30</div>
+                        <div class="pdf-ranking-cell">561</div>
+                        <div class="pdf-ranking-cell">407</div>
+                        <div class="pdf-ranking-cell">石田三十郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ページ区切り -->
+        <div class="pdf-page-break"></div>
+
+        <!-- 4枚目: ③過量販売ランキング -->
+        <div class="pdf-page" data-page="4枚目: ③過量販売ランキング">
+            <div class="pdf-print-guide"></div>
+            <div class="pdf-header">
+                <div class="pdf-title">担当者別ランキング</div>
+                <div class="pdf-date">2024年12月20日</div>
+            </div>
+
+            <!-- ③過量販売ランキング -->
+            <div class="pdf-ranking-section">
+                <div class="pdf-ranking-title">③過量販売ランキング</div>
+                <div class="pdf-ranking-table">
+                    <div class="pdf-ranking-header">
+                        <div class="pdf-ranking-cell">ランキング</div>
+                        <div class="pdf-ranking-cell">地区No.</div>
+                        <div class="pdf-ranking-cell">所属No.</div>
+                        <div class="pdf-ranking-cell">担当名</div>
+                        <div class="pdf-ranking-cell">件数</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">1</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">101</div>
+                        <div class="pdf-ranking-cell">山田太郎</div>
+                        <div class="pdf-ranking-cell">3</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">2</div>
+                        <div class="pdf-ranking-cell">521</div>
+                        <div class="pdf-ranking-cell">201</div>
+                        <div class="pdf-ranking-cell">佐藤次郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">3</div>
+                        <div class="pdf-ranking-cell">541</div>
+                        <div class="pdf-ranking-cell">301</div>
+                        <div class="pdf-ranking-cell">田中三郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <!-- 以下、30人分のサンプルデータを生成 -->
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">4</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">102</div>
+                        <div class="pdf-ranking-cell">鈴木花子</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">5</div>
+                        <div class="pdf-ranking-cell">561</div>
+                        <div class="pdf-ranking-cell">401</div>
+                        <div class="pdf-ranking-cell">渡辺次郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">6</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">103</div>
+                        <div class="pdf-ranking-cell">高橋四郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">7</div>
+                        <div class="pdf-ranking-cell">541</div>
+                        <div class="pdf-ranking-cell">302</div>
+                        <div class="pdf-ranking-cell">伊藤三郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">8</div>
+                        <div class="pdf-ranking-cell">521</div>
+                        <div class="pdf-ranking-cell">202</div>
+                        <div class="pdf-ranking-cell">小林四郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <!-- 4-30行: 実際の30人分のデータを追加 -->
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">4</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">102</div>
+                        <div class="pdf-ranking-cell">鈴木花子</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">5</div>
+                        <div class="pdf-ranking-cell">561</div>
+                        <div class="pdf-ranking-cell">401</div>
+                        <div class="pdf-ranking-cell">渡辺次郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">6</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">103</div>
+                        <div class="pdf-ranking-cell">高橋四郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">7</div>
+                        <div class="pdf-ranking-cell">541</div>
+                        <div class="pdf-ranking-cell">302</div>
+                        <div class="pdf-ranking-cell">伊藤三郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">8</div>
+                        <div class="pdf-ranking-cell">521</div>
+                        <div class="pdf-ranking-cell">202</div>
+                        <div class="pdf-ranking-cell">小林四郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">9</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">104</div>
+                        <div class="pdf-ranking-cell">加藤五郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">10</div>
+                        <div class="pdf-ranking-cell">561</div>
+                        <div class="pdf-ranking-cell">402</div>
+                        <div class="pdf-ranking-cell">吉田六郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">11</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">105</div>
+                        <div class="pdf-ranking-cell">中村七郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">12</div>
+                        <div class="pdf-ranking-cell">521</div>
+                        <div class="pdf-ranking-cell">203</div>
+                        <div class="pdf-ranking-cell">小林八郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">13</div>
+                        <div class="pdf-ranking-cell">541</div>
+                        <div class="pdf-ranking-cell">303</div>
+                        <div class="pdf-ranking-cell">加藤九郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">14</div>
+                        <div class="pdf-ranking-cell">561</div>
+                        <div class="pdf-ranking-cell">403</div>
+                        <div class="pdf-ranking-cell">鈴木十郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">15</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">106</div>
+                        <div class="pdf-ranking-cell">田中十一郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">16</div>
+                        <div class="pdf-ranking-cell">521</div>
+                        <div class="pdf-ranking-cell">204</div>
+                        <div class="pdf-ranking-cell">佐藤十二郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">17</div>
+                        <div class="pdf-ranking-cell">541</div>
+                        <div class="pdf-ranking-cell">304</div>
+                        <div class="pdf-ranking-cell">高橋十三郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">18</div>
+                        <div class="pdf-ranking-cell">561</div>
+                        <div class="pdf-ranking-cell">404</div>
+                        <div class="pdf-ranking-cell">伊藤十四郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">19</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">107</div>
+                        <div class="pdf-ranking-cell">渡辺十五郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">20</div>
+                        <div class="pdf-ranking-cell">521</div>
+                        <div class="pdf-ranking-cell">205</div>
+                        <div class="pdf-ranking-cell">山本十六郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">21</div>
+                        <div class="pdf-ranking-cell">541</div>
+                        <div class="pdf-ranking-cell">305</div>
+                        <div class="pdf-ranking-cell">中島十七郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">22</div>
+                        <div class="pdf-ranking-cell">561</div>
+                        <div class="pdf-ranking-cell">405</div>
+                        <div class="pdf-ranking-cell">小川十八郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">23</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">108</div>
+                        <div class="pdf-ranking-cell">松本十九郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">24</div>
+                        <div class="pdf-ranking-cell">521</div>
+                        <div class="pdf-ranking-cell">206</div>
+                        <div class="pdf-ranking-cell">井上二十郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">25</div>
+                        <div class="pdf-ranking-cell">541</div>
+                        <div class="pdf-ranking-cell">306</div>
+                        <div class="pdf-ranking-cell">木村二十一郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">26</div>
+                        <div class="pdf-ranking-cell">561</div>
+                        <div class="pdf-ranking-cell">406</div>
+                        <div class="pdf-ranking-cell">林二十二郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">27</div>
+                        <div class="pdf-ranking-cell">511</div>
+                        <div class="pdf-ranking-cell">109</div>
+                        <div class="pdf-ranking-cell">清水二十三郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">28</div>
+                        <div class="pdf-ranking-cell">521</div>
+                        <div class="pdf-ranking-cell">207</div>
+                        <div class="pdf-ranking-cell">山田二十四郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">29</div>
+                        <div class="pdf-ranking-cell">541</div>
+                        <div class="pdf-ranking-cell">307</div>
+                        <div class="pdf-ranking-cell">佐々木二十五郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                    <div class="pdf-ranking-row">
+                        <div class="pdf-ranking-cell">30</div>
+                        <div class="pdf-ranking-cell">561</div>
+                        <div class="pdf-ranking-cell">407</div>
+                        <div class="pdf-ranking-cell">石田三十郎</div>
+                        <div class="pdf-ranking-cell">1</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <script>
+        // 印刷プレビュー用
+        function openPrintPreview() {
+            window.print();
+        }
+
+        // PDF生成テスト用（html2canvas + jsPDF）
+        async function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+
+            // 4ページ分の処理
+            const pages = document.querySelectorAll('.pdf-page');
+
+            for (let i = 0; i < pages.length; i++) {
+                const page = pages[i];
+                const canvas = await html2canvas(page, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff'
+                });
+
+                const imgData = canvas.toDataURL('image/png');
+
+                if (i > 0) {
+                    pdf.addPage();
+                }
+
+                pdf.addImage(imgData, 'PNG', 10, 10, 190, 277);
+            }
+
+            pdf.save('test-layout-4pages.pdf');
+        }
+
+        // キーボードショートカット
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'p') {
+                e.preventDefault();
+                openPrintPreview();
+            }
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                generatePDF();
+            }
+        });
+    </script>
+
+    <!-- CDNライブラリ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <!-- 操作説明 -->
+    <div style="position: fixed; bottom: 10px; left: 10px; background: rgba(255,255,255,0.9); padding: 10px; border: 1px solid #ccc; font-size: 12px;">
+        <div><strong>操作方法:</strong></div>
+        <div>Ctrl + P: 印刷プレビュー</div>
+        <div>Ctrl + S: PDF生成テスト</div>
+        <div style="margin-top: 8px; font-size: 11px;">
+            <div><strong>表示内容:</strong></div>
+            <div>🔴赤破線: 印刷範囲境界</div>
+            <div>⬜灰色枠: 印刷可能領域</div>
+            <div>1枚目: 統計データ</div>
+            <div>2枚目: ①高齢者ランキング</div>
+            <div>3枚目: ②単独契約ランキング</div>
+            <div>4枚目: ③過量販売ランキング</div>
+        </div>
+    </div>
+</body>
+</html>
