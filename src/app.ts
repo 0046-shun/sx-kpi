@@ -1036,7 +1036,12 @@ export class App {
     private setupStaffDataExportButton(): void {
         const exportButton = document.querySelector('.btn-export-staff-data');
         if (exportButton) {
-            exportButton.addEventListener('click', async () => {
+            // 既存のイベントリスナーを削除
+            const newButton = exportButton.cloneNode(true);
+            exportButton.parentNode?.replaceChild(newButton, exportButton);
+            
+            // 新しいイベントリスナーを追加
+            newButton.addEventListener('click', async () => {
                 try {
                     // 現在の担当別データを取得
                     const currentData = this.currentData;
