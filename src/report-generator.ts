@@ -917,12 +917,14 @@ export class ReportGenerator {
             const pdfContainer = this.createPDFHTML(report, type);
             
             // コンテナを画面外に配置（レンダリング用）
+            // A4サイズ（210mm）から左右余白（20mm）を引いた幅に設定
+            const containerWidth = 794 - (10 * 794 / 210); // 約715px
             pdfContainer.style.cssText = `
                 position: absolute;
                 left: -9999px;
                 top: -9999px;
                 visibility: visible;
-                width: 794px;
+                width: ${containerWidth}px;
                 height: auto;
                 background: white;
                 z-index: -1;
@@ -1031,13 +1033,15 @@ export class ReportGenerator {
             `;
 
             // 各ページを個別にhtml2canvasで処理
+            // HTMLコンテナと同じ幅を使用
+            const canvasWidth = 794 - (19 * 794 / 210); // 約711px（微調整）
             const canvas = await (window as any).html2canvas(page, {
                 scale: 2,
                 useCORS: true,
                 allowTaint: true,
                 backgroundColor: '#ffffff',
                 logging: false,
-                width: 794,
+                width: canvasWidth,  // 794 → 約711px
                 height: 1123,
                 scrollX: 0,
                 scrollY: 0,
@@ -1070,8 +1074,8 @@ export class ReportGenerator {
                 drawHeight = drawWidth / imgAspect;
             }
             
-            // 中央配置
-            const x = (pageWidth - drawWidth) / 2;
+            // 中央配置（marginXを考慮）
+            const x = marginX + (availW - drawWidth) / 2;
             const y = marginY;
             
             pdf.addImage(imgData, 'PNG', x, y, drawWidth, drawHeight, undefined, 'FAST');
