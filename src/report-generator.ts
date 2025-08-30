@@ -1329,13 +1329,6 @@ export class ReportGenerator {
 
     // 担当別データを生成
     public generateStaffData(data: any[], targetDate: Date): StaffData[] {
-        console.log('generateStaffData開始:', {
-            totalDataCount: data.length,
-            targetDate: targetDate.toISOString(),
-            targetYear: targetDate.getFullYear(),
-            targetMonth: targetDate.getMonth()
-        });
-        
         const staffData: StaffData[] = [];
         
         // 対象月のデータのみを抽出（受注カウント日付を基準に判定）
@@ -1352,23 +1345,7 @@ export class ReportGenerator {
             // 受注カウント日付が対象月と一致するかチェック
             const matches = effectiveDate.getFullYear() === targetYear && effectiveDate.getMonth() === targetMonth;
             
-            // デバッグログ（最初の10件のみ）
-            if (data.indexOf(row) < 10) {
-                console.log('行データ:', {
-                    index: data.indexOf(row),
-                    staffName: row.staffName,
-                    date: row.date?.toISOString(),
-                    effectiveDate: effectiveDate?.toISOString(),
-                    matches
-                });
-            }
-            
             return matches;
-        });
-        
-        console.log('月別フィルタリング結果:', {
-            filteredCount: monthlyData.length,
-            originalCount: data.length
         });
         
         monthlyData.forEach((row, index) => {
@@ -1429,11 +1406,6 @@ export class ReportGenerator {
                     staffData.push(newStaff);
                 }
             }
-        });
-        
-        console.log('担当別データ生成完了:', {
-            staffDataCount: staffData.length,
-            totalOrders: staffData.reduce((sum, staff) => sum + staff.totalOrders, 0)
         });
         
         return staffData;
