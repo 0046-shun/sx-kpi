@@ -60,4 +60,5 @@ export declare class App {
     private toggleDateSelection;
     private addSelectedDates;
     private isSameDate;
+    private showLoading;
 }

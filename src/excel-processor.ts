@@ -281,19 +281,130 @@ export class ExcelProcessor {
     }
     
     /**
-     * 受注としてカウントするかどうかを判定
-     * 月報用の判定（より寛容）
+     * 指定された日付の受注かどうかを判定
+     * @param row データ行
+     * @param targetDate 対象日付
+     * @param isDailyReport 日報生成時かどうか（true: 日報、false: 月報）
      */
-    public isOrderForDate(row: any, targetDate: Date): boolean {
+    public isOrderForDate(row: any, targetDate: Date, isDailyReport: boolean = true): boolean {
         // 基本チェック
         if (!row.date || !targetDate) {
-            console.log(`基本チェック失敗: row.date=${row.date}, targetDate=${targetDate}`);
             return false;
         }
 
+        // 受注日（A列）と確認日時（K列）の日付を比較して、遅い日付を取得
+        let effectiveDate = row.date; // デフォルトは受注日
+
+        if (row.confirmationDateTime && typeof row.confirmationDateTime === 'string') {
+            const confirmationStr = row.confirmationDateTime;
+
+            // K列から日付を抽出（8/30 10:03 大城 のような形式）
+            const dateTimePattern = confirmationStr.match(/(\d{1,2})\/(\d{1,2})/);
+            if (dateTimePattern) {
+                const kColumnMonth = parseInt(dateTimePattern[1]);
+                const kColumnDay = parseInt(dateTimePattern[2]);
+                const kColumnDate = new Date(targetDate.getFullYear(), kColumnMonth - 1, kColumnDay);
+
+                // 受注日と確認日を比較して、遅い日付を採用
+                if (kColumnDate > row.date) {
+                    effectiveDate = kColumnDate;
+                }
+            }
+        }
+
+        // 日付単位での判定（日報の場合）
+        const effectiveDateOnly = new Date(effectiveDate.getFullYear(), effectiveDate.getMonth(), effectiveDate.getDate());
+        const targetDateOnly = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+        const dateMatch = effectiveDateOnly.getTime() === targetDateOnly.getTime();
+
+        if (dateMatch) {
+            // J列条件チェック（1、2、5の場合は除外）
+            const confirmation = row.confirmation;
+            if (typeof confirmation === 'number') {
+                if (confirmation === 1 || confirmation === 2 || confirmation === 5) {
+                    return false;
+                }
+            } else if (typeof confirmation === 'string') {
+                const trimmedValue = confirmation.trim();
+                if (trimmedValue !== '') {
+                    const confirmationNum = parseInt(trimmedValue);
+                    if (!isNaN(confirmationNum) && (confirmationNum === 1 || confirmationNum === 2 || confirmationNum === 5)) {
+                        return false;
+                    }
+                }
+            }
+
+            // K列条件チェック（受注パターン）
+            // K列に日付がない場合は、A列の日付で受注カウント
+            if (!row.confirmationDateTime || typeof row.confirmationDateTime !== 'string') {
+                return true;
+            }
+
+            const confirmationStr = row.confirmationDateTime;
+
+            // 除外キーワードのチェック
+            if (confirmationStr.includes('担当待ち') || confirmationStr.includes('直電') ||
+                confirmationStr.includes('契約時') || confirmationStr.includes('待ち') ||
+                confirmationStr.includes('入電予定')) {
+                return false;
+            }
+
+            // 「同時」パターンのチェック
+            if (confirmationStr.includes('同時')) {
+                return true;
+            }
+
+            // 有効な受注パターンのチェック
+            if (confirmationStr.includes('単独') || confirmationStr.includes('過量')) {
+                return true;
+            }
+
+            // 69歳以下パターンのチェック
+            if (row.contractorAge && typeof row.contractorAge === 'number' && row.contractorAge <= 69) {
+                if (confirmationStr.includes('69歳以下')) {
+                    return true;
+                }
+            }
+
+            // 日付パターンのチェック（8/25 11:55 大城 のような形式）
+            const dateTimePattern = confirmationStr.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
+            if (dateTimePattern) {
+                const kColumnMonth = parseInt(dateTimePattern[1]);
+                const kColumnDay = parseInt(dateTimePattern[2]);
+                const kColumnDateOnly = new Date(targetDate.getFullYear(), kColumnMonth - 1, kColumnDay);
+                const kDateMatch = kColumnDateOnly.getTime() === targetDateOnly.getTime();
+
+                if (kDateMatch) {
+                    return true;
+                }
+            }
+
+            // 単純な日付パターンのチェック（8/25 のような形式）
+            const simpleDatePattern = confirmationStr.match(/(\d{1,2})\/(\d{1,2})/);
+            if (simpleDatePattern) {
+                const kColumnMonth = parseInt(simpleDatePattern[1]);
+                const kColumnDay = parseInt(simpleDatePattern[2]);
+                const kColumnDateOnly = new Date(targetDate.getFullYear(), kColumnMonth - 1, kColumnDay);
+                const kDateMatch = kColumnDateOnly.getTime() === targetDateOnly.getTime();
+
+                if (kDateMatch) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // 日付が一致しない場合の処理
+        if (isDailyReport) {
+            // 日報生成時は、日付が一致しない場合は受注として扱わない
+            return false;
+        }
+
+        // 月報生成時のみ月報判定を実行
         // 月単位での判定（月報の場合）
-        const monthMatch = row.date.getFullYear() === targetDate.getFullYear() && 
-                          row.date.getMonth() === targetDate.getMonth();
+        const monthMatch = effectiveDate.getFullYear() === targetDate.getFullYear() && 
+                          effectiveDate.getMonth() === targetDate.getMonth();
         
         if (monthMatch) {
             // 月が一致する場合は、基本的に受注として扱う
@@ -303,7 +414,6 @@ export class ExcelProcessor {
             const confirmation = row.confirmation;
             if (typeof confirmation === 'number') {
                 if (confirmation === 1 || confirmation === 2 || confirmation === 5) {
-                    console.log(`J列除外: ${row.staffName}, confirmation=${confirmation}`);
                     return false;
                 }
             } else if (typeof confirmation === 'string') {
@@ -311,7 +421,6 @@ export class ExcelProcessor {
                 if (trimmedValue !== '') {
                     const confirmationNum = parseInt(trimmedValue);
                     if (!isNaN(confirmationNum) && (confirmationNum === 1 || confirmationNum === 2 || confirmationNum === 5)) {
-                        console.log(`J列除外: ${row.staffName}, confirmation=${confirmationNum}`);
                         return false;
                     }
                 }
@@ -322,94 +431,11 @@ export class ExcelProcessor {
                 const confirmationStr = row.confirmationDateTime;
                 // より厳密な除外条件のみ
                 if (confirmationStr.includes('担当待ち') || confirmationStr.includes('直電')) {
-                    console.log(`K列除外: ${row.staffName}, confirmationStr=${confirmationStr}`);
-            return false;
-                }
-            }
-            
-            return true;
-        }
-
-        // 日付単位での判定（日報の場合）
-        const rowDateOnly = new Date(row.date.getFullYear(), row.date.getMonth(), row.date.getDate());
-        const targetDateOnly = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
-        const dateMatch = rowDateOnly.getTime() === targetDateOnly.getTime();
-        
-        if (!dateMatch) {
-            return false;
-        }
-
-        // J列条件チェック（1、2、5の場合は除外）
-        const confirmation = row.confirmation;
-        if (typeof confirmation === 'number') {
-            if (confirmation === 1 || confirmation === 2 || confirmation === 5) {
-                return false;
-            }
-        } else if (typeof confirmation === 'string') {
-            const trimmedValue = confirmation.trim();
-            if (trimmedValue !== '') {
-                const confirmationNum = parseInt(trimmedValue);
-                if (!isNaN(confirmationNum) && (confirmationNum === 1 || confirmationNum === 2 || confirmationNum === 5)) {
                     return false;
                 }
             }
-        }
-        
-        // K列条件チェック（受注パターン）
-        if (!row.confirmationDateTime || typeof row.confirmationDateTime !== 'string') {
-            return false;
-        }
-        
-        const confirmationStr = row.confirmationDateTime;
-
-        // 除外キーワードのチェック
-        if (confirmationStr.includes('担当待ち') || confirmationStr.includes('直電') || 
-            confirmationStr.includes('契約時') || confirmationStr.includes('待ち') ||
-            confirmationStr.includes('入電予定')) {
-            return false;
-        }
-        
-        // 「同時」パターンのチェック
-        if (confirmationStr.includes('同時')) {
+            
             return true;
-        }
-
-        // 有効な受注パターンのチェック
-        if (confirmationStr.includes('単独') || confirmationStr.includes('過量')) {
-        return true;
-    }
-    
-        // 69歳以下パターンのチェック
-        if (row.contractorAge && typeof row.contractorAge === 'number' && row.contractorAge <= 69) {
-            if (confirmationStr.includes('69歳以下')) {
-                return true;
-            }
-        }
-
-        // 日付パターンのチェック（8/25 11:55 大城 のような形式）
-        const dateTimePattern = confirmationStr.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
-        if (dateTimePattern) {
-            const kColumnMonth = parseInt(dateTimePattern[1]);
-            const kColumnDay = parseInt(dateTimePattern[2]);
-            const kColumnDateOnly = new Date(targetDate.getFullYear(), kColumnMonth - 1, kColumnDay);
-            const kDateMatch = kColumnDateOnly.getTime() === targetDateOnly.getTime();
-            
-            if (kDateMatch) {
-                return true;
-            }
-        }
-
-        // 単純な日付パターンのチェック（8/25 のような形式）
-        const simpleDatePattern = confirmationStr.match(/(\d{1,2})\/(\d{1,2})/);
-        if (simpleDatePattern) {
-            const kColumnMonth = parseInt(simpleDatePattern[1]);
-            const kColumnDay = parseInt(simpleDatePattern[2]);
-            const kColumnDateOnly = new Date(targetDate.getFullYear(), kColumnMonth - 1, kColumnDay);
-            const kDateMatch = kColumnDateOnly.getTime() === targetDateOnly.getTime();
-            
-            if (kDateMatch) {
-                return true;
-            }
         }
 
         return false;
@@ -455,7 +481,7 @@ export class ExcelProcessor {
         }
         
         // 受注条件を満たすかチェック
-        if (!this.isOrderForDate(row, row.date)) {
+        if (!this.isOrderForDate(row, row.date, true)) {  // 日報判定として扱う
             return false;
         }
         

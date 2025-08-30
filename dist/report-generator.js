@@ -76,75 +76,9 @@ export class ReportGenerator {
     generateDailyReport(data, date) {
         const targetDate = new Date(date);
         this.currentTargetDate = targetDate; // 時間外判定で使用
-        const targetMonth = targetDate.getMonth();
-        const targetDay = targetDate.getDate();
-        // 受注日が対象日のデータを取得（公休日・禁止日施工判定用）
+        // excel-processor.tsのisOrderForDateメソッドを使用して日付フィルタリング
         const dailyData = data.filter(row => {
-            // 日付チェック
-            if (!row.date) {
-                return false;
-            }
-            const rowMonth = row.date.getMonth();
-            const rowDay = row.date.getDate();
-            const targetMonth = targetDate.getMonth();
-            const targetDay = targetDate.getDate();
-            const isDateMatch = rowMonth === targetMonth && rowDay === targetDay;
-            if (!isDateMatch)
-                return false;
-            // K列の文字列マッチングチェック
-            if (row.confirmationDateTime) {
-                const kColumnStr = String(row.confirmationDateTime);
-                const targetDateStr = `${targetMonth + 1}/${targetDay}`;
-                const targetDateStrAlt = `${targetMonth + 1}/${targetDay.toString().padStart(2, '0')}`;
-                if (kColumnStr.includes(targetDateStr) || kColumnStr.includes(targetDateStrAlt)) {
-                    return true;
-                }
-            }
-            // K列の日付パターンチェック
-            if (row.confirmationDateTime) {
-                const kColumnStr = String(row.confirmationDateTime);
-                const datePattern = kColumnStr.match(/(\d{1,2})\/(\d{1,2})/);
-                if (datePattern) {
-                    const kMonth = parseInt(datePattern[1]);
-                    const kDay = parseInt(datePattern[2]);
-                    if (kMonth === targetMonth + 1 && kDay === targetDay) {
-                        return true;
-                    }
-                }
-            }
-            // J列条件チェック（1、2、5の場合は除外）
-            let isJColumnValid = true;
-            const confirmationValue = row.confirmation;
-            if (typeof confirmationValue === 'number') {
-                if (confirmationValue === 1 || confirmationValue === 2 || confirmationValue === 5) {
-                    isJColumnValid = false;
-                }
-            }
-            else if (typeof confirmationValue === 'string') {
-                const trimmedValue = confirmationValue.trim();
-                if (trimmedValue !== '') {
-                    const confirmationNum = parseInt(trimmedValue);
-                    if (!isNaN(confirmationNum) && (confirmationNum === 1 || confirmationNum === 2 || confirmationNum === 5)) {
-                        isJColumnValid = false;
-                    }
-                }
-            }
-            // K列除外キーワードチェック
-            let isKColumnValid = true;
-            if (row.confirmationDateTime) {
-                const kColumnStr = String(row.confirmationDateTime);
-                // 除外キーワードのチェック
-                if (kColumnStr.includes('担当待ち') || kColumnStr.includes('直電') ||
-                    kColumnStr.includes('契約時') || kColumnStr.includes('待ち')) {
-                    isKColumnValid = false;
-                }
-                // 有効な受注パターンのチェック
-                if (kColumnStr.includes('単独契約') || kColumnStr.includes('過量販売')) {
-                    isKColumnValid = true;
-                }
-            }
-            const isValid = isDateMatch && isJColumnValid && isKColumnValid;
-            return isValid;
+            return this.excelProcessor.isOrderForDate(row, targetDate, true); // 日報生成時はtrue
         });
         const reportData = this.calculateReportData(dailyData, 'daily');
         // 選択された日付情報を追加
@@ -153,48 +87,11 @@ export class ReportGenerator {
     }
     generateMonthlyReport(data, month) {
         const [year, monthNum] = month.split('-').map(Number);
-        const monthlyData = data.filter(row => {
-            // 日付チェック
-            if (!row.date) {
-                return false;
-            }
-            const isDateMatch = row.date.getFullYear() === year && row.date.getMonth() === monthNum - 1;
-            if (!isDateMatch)
-                return false;
-            // J列条件チェック（1、2、5の場合は除外）
-            let isJColumnValid = true;
-            const confirmationValue = row.confirmation;
-            if (typeof confirmationValue === 'number') {
-                if (confirmationValue === 1 || confirmationValue === 2 || confirmationValue === 5) {
-                    isJColumnValid = false;
-                }
-            }
-            else if (typeof confirmationValue === 'string') {
-                const trimmedValue = confirmationValue.trim();
-                if (trimmedValue !== '') {
-                    const confirmationNum = parseInt(trimmedValue);
-                    if (!isNaN(confirmationNum) && (confirmationNum === 1 || confirmationNum === 2 || confirmationNum === 5)) {
-                        isJColumnValid = false;
-                    }
-                }
-            }
-            // K列除外キーワードチェック
-            let isKColumnValid = true;
-            if (row.confirmationDateTime) {
-                const kColumnStr = String(row.confirmationDateTime);
-                // 除外キーワードのチェック
-                if (kColumnStr.includes('担当待ち') || kColumnStr.includes('直電') ||
-                    kColumnStr.includes('契約時') || kColumnStr.includes('待ち')) {
-                    isKColumnValid = false;
-                }
-                // 有効な受注パターンのチェック
-                if (kColumnStr.includes('単独契約') || kColumnStr.includes('過量販売')) {
-                    isKColumnValid = true;
-                }
-            }
-            const isValid = isJColumnValid && isKColumnValid;
-            return isValid;
-        });
+        // 月報の対象月の最初の日をtargetDateとして設定
+        const targetDate = new Date(year, monthNum - 1, 1);
+        // excel-processor.tsのisOrderForDateメソッドを使用して月報フィルタリング
+        const monthlyData = data.filter(row => this.excelProcessor.isOrderForDate(row, targetDate, false) // 月報生成時はfalse
+        );
         const reportData = this.calculateReportData(monthlyData, 'monthly');
         reportData.rawData = monthlyData; // 月報データを保存
         // 選択された月情報を追加
@@ -445,7 +342,7 @@ export class ReportGenerator {
     }
     // 受注判定メソッド（日付指定版）
     isOrderForDate(row, targetDate) {
-        return this.excelProcessor.isOrderForDate(row, targetDate);
+        return this.excelProcessor.isOrderForDate(row, targetDate, true); // 日報判定として扱う
     }
     // 担当者別ランキング集計メソッド
     // 契約者70歳以上の受注件数トップ10ランキング
@@ -545,9 +442,11 @@ export class ReportGenerator {
     // 69歳以下契約件数の担当別件数
     calculateNormalAgeStaffRanking(data, targetYear, targetMonth) {
         const staffCounts = new Map();
+        // 月報の対象月の最初の日をtargetDateとして設定
+        const targetDate = targetYear && targetMonth !== undefined ? new Date(targetYear, targetMonth, 1) : new Date();
         data.forEach((row, index) => {
-            // 動的にisOrderを計算（行の日付を使用）
-            const isOrder = this.isOrderForDate(row, row.date);
+            // 動的にisOrderを計算（月報の対象月で判定）
+            const isOrder = this.isOrderForDate(row, targetDate);
             const age = row.contractorAge || row.age;
             const isNormalAge = !age || age < 70;
             if (index < 10) {

@@ -16,10 +16,12 @@ export declare class ExcelProcessor {
      */
     private normalizeStaffName;
     /**
-     * 受注としてカウントするかどうかを判定
-     * 月報用の判定（より寛容）
+     * 指定された日付の受注かどうかを判定
+     * @param row データ行
+     * @param targetDate 対象日付
+     * @param isDailyReport 日報生成時かどうか（true: 日報、false: 月報）
      */
-    isOrderForDate(row: any, targetDate: Date): boolean;
+    isOrderForDate(row: any, targetDate: Date, isDailyReport?: boolean): boolean;
     /**
      * 単独契約かどうかを判定
      */

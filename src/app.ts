@@ -616,11 +616,19 @@ export class App {
         }
 
         try {
+            // ローディング表示開始
+            this.showLoading(true);
+            
             const report = this.reportGenerator.generateDailyReport(data, dateInput.value);
             this.displayReport(report, 'daily');
+            
+            // ローディング表示終了
+            this.showLoading(false);
         } catch (error) {
             console.error('日報生成エラー:', error);
             this.showMessage('日報の生成中にエラーが発生しました。', 'error');
+            // エラー時もローディング表示終了
+            this.showLoading(false);
         }
     }
     
@@ -639,6 +647,9 @@ export class App {
         }
         
         try {
+            // ローディング表示開始
+            this.showLoading(true);
+            
             // 選択された月から年月を取得
             const monthString = reportMonthInput.value; // 既に "YYYY-MM" 形式
             
@@ -649,9 +660,13 @@ export class App {
             // 担当別データも月報データで更新
             this.updateStaffDataWithMonthlyData(report.rawData, monthString);
             
+            // ローディング表示終了
+            this.showLoading(false);
         } catch (error) {
             console.error('月報生成エラー:', error);
             this.showMessage('月報の生成中にエラーが発生しました。', 'error');
+            // エラー時もローディング表示終了
+            this.showLoading(false);
         }
     }
     
@@ -669,12 +684,9 @@ export class App {
             }
         }
         
-        // 担当別データも更新（月報の場合は月報データを渡す）
-        if (type === 'monthly' && report.rawData) {
-            this.updateStaffData(report.rawData);
-        } else {
-            this.updateStaffData();
-        }
+        // 担当別データの更新は行わない（日報・月報とも）
+        // 日報: 担当別データの更新は不要
+        // 月報: updateStaffDataWithMonthlyDataで直接更新される
         
         // エクスポートボタンのイベントリスナーを設定
         this.setupExportButtons(type, report);
@@ -1505,6 +1517,18 @@ export class App {
         return date1.getFullYear() === date2.getFullYear() &&
                date1.getMonth() === date2.getMonth() &&
                date1.getDate() === date2.getDate();
+    }
+
+    // ローディングスピナーの表示/非表示
+    private showLoading(isLoading: boolean): void {
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        if (loadingSpinner) {
+            if (isLoading) {
+                loadingSpinner.style.display = 'block';
+            } else {
+                loadingSpinner.style.display = 'none';
+            }
+        }
     }
 }
 
