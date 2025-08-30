@@ -371,6 +371,30 @@ export class ExcelProcessor {
         return false;
     }
     /**
+     * K列から日付を抽出する統一された関数
+     * @param confirmationStr K列の文字列
+     * @returns 抽出された月と日、またはnull
+     */
+    extractDateFromKColumn(confirmationStr) {
+        // 時間付きパターン: 8/29 10:30 田中
+        const dateTimePattern = confirmationStr.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
+        if (dateTimePattern) {
+            return {
+                month: parseInt(dateTimePattern[1]),
+                day: parseInt(dateTimePattern[2])
+            };
+        }
+        // 単純日付パターン: 8/29 田中
+        const simpleDatePattern = confirmationStr.match(/(\d{1,2})\/(\d{1,2})/);
+        if (simpleDatePattern) {
+            return {
+                month: parseInt(simpleDatePattern[1]),
+                day: parseInt(simpleDatePattern[2])
+            };
+        }
+        return null;
+    }
+    /**
      * 単独契約かどうかを判定
      */
     isSingle(row) {

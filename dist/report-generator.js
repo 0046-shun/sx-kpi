@@ -1164,14 +1164,40 @@ export class ReportGenerator {
     }
     // 担当別データを生成
     generateStaffData(data, targetDate) {
+        console.log('generateStaffData開始:', {
+            totalDataCount: data.length,
+            targetDate: targetDate.toISOString(),
+            targetYear: targetDate.getFullYear(),
+            targetMonth: targetDate.getMonth()
+        });
         const staffData = [];
-        // 対象月のデータのみを抽出
+        // 対象月のデータのみを抽出（受注カウント日付を基準に判定）
         const targetYear = targetDate.getFullYear();
         const targetMonth = targetDate.getMonth();
         const monthlyData = data.filter(row => {
             if (!row.date)
                 return false;
-            return row.date.getFullYear() === targetYear && row.date.getMonth() === targetMonth;
+            // 受注カウント日付を計算（A列とK列を比較して遅い日付を採用）
+            const effectiveDate = this.calculateEffectiveDate(row);
+            if (!effectiveDate)
+                return false;
+            // 受注カウント日付が対象月と一致するかチェック
+            const matches = effectiveDate.getFullYear() === targetYear && effectiveDate.getMonth() === targetMonth;
+            // デバッグログ（最初の10件のみ）
+            if (data.indexOf(row) < 10) {
+                console.log('行データ:', {
+                    index: data.indexOf(row),
+                    staffName: row.staffName,
+                    date: row.date?.toISOString(),
+                    effectiveDate: effectiveDate?.toISOString(),
+                    matches
+                });
+            }
+            return matches;
+        });
+        console.log('月別フィルタリング結果:', {
+            filteredCount: monthlyData.length,
+            originalCount: data.length
         });
         monthlyData.forEach((row, index) => {
             // 担当者名の正規化
@@ -1224,6 +1250,10 @@ export class ReportGenerator {
                     staffData.push(newStaff);
                 }
             }
+        });
+        console.log('担当別データ生成完了:', {
+            staffDataCount: staffData.length,
+            totalOrders: staffData.reduce((sum, staff) => sum + staff.totalOrders, 0)
         });
         return staffData;
     }
@@ -1440,24 +1470,58 @@ export class ReportGenerator {
             </div>
         `;
     }
+    /**
+     * 受注カウント日付を計算（A列とK列を比較して遅い日付を採用）
+     * @param row データ行
+     * @returns 受注カウントに使用される日付
+     */
+    calculateEffectiveDate(row) {
+        if (!row.date) {
+            return null;
+        }
+        // 基本は受注日（A列）
+        let effectiveDate = row.date;
+        // K列から日付を抽出（8/30 10:03 大城 のような形式）
+        if (row.confirmationDateTime && typeof row.confirmationDateTime === 'string') {
+            const confirmationStr = row.confirmationDateTime;
+            const dateTimePattern = confirmationStr.match(/(\d{1,2})\/(\d{1,2})/);
+            if (dateTimePattern) {
+                const kColumnMonth = parseInt(dateTimePattern[1]);
+                const kColumnDay = parseInt(dateTimePattern[2]);
+                const kColumnDate = new Date(row.date.getFullYear(), kColumnMonth - 1, kColumnDay);
+                // 受注日と確認日を比較して、遅い日付を採用
+                if (kColumnDate > row.date) {
+                    effectiveDate = kColumnDate;
+                }
+            }
+        }
+        return effectiveDate;
+    }
     // 確認データのHTMLを生成
     createDataConfirmationHTML(data) {
         if (!data || data.length === 0) {
             return '<div class="alert alert-info">データがありません</div>';
         }
-        const tableRows = data.map((row, index) => `
-            <tr>
-                <td>${index + 1}</td>
-                <td>${row.date ? row.date.toLocaleDateString() : 'N/A'}</td>
-                <td>${row.staffName || ''}</td>
-                <td>${row.regionNumber || ''}</td>
-                <td>${row.departmentNumber || ''}</td>
-                <td>${row.contractor || ''}</td>
-                <td>${row.contractorAge || ''}</td>
-                <td>${row.confirmation || ''}</td>
-                <td>${row.confirmationDateTime || ''}</td>
-            </tr>
-        `).join('');
+        const tableRows = data.map((row, index) => {
+            // 受注カウント日付を計算（A列とK列を比較して遅い日付を採用）
+            const effectiveDate = this.calculateEffectiveDate(row);
+            // 受注判定結果を計算（日報と同じロジック）
+            const isOrderForDate = this.excelProcessor.isOrderForDate(row, effectiveDate || row.date, true);
+            return `
+                <tr data-order-status="${isOrderForDate ? 'order' : 'non-order'}" data-effective-date="${effectiveDate ? effectiveDate.toISOString() : ''}">
+                    <td>${index + 1}</td>
+                    <td>${row.date ? row.date.toLocaleDateString() : 'N/A'}</td>
+                    <td>${effectiveDate ? effectiveDate.toLocaleDateString() : 'N/A'}</td>
+                    <td>${row.staffName || ''}</td>
+                    <td>${row.regionNumber || ''}</td>
+                    <td>${row.departmentNumber || ''}</td>
+                    <td>${row.contractor || ''}</td>
+                    <td>${row.contractorAge || ''}</td>
+                    <td>${row.confirmation || ''}</td>
+                    <td>${row.confirmationDateTime || ''}</td>
+                </tr>
+            `;
+        }).join('');
         return `
             <div class="alert alert-success">
                 <h5>データ確認完了</h5>
@@ -1466,17 +1530,29 @@ export class ReportGenerator {
             
             <!-- フィルター機能 -->
             <div class="row mb-3">
-                <div class="col-md-4">
-                    <label for="staffFilter" class="form-label">担当者名でフィルター</label>
-                    <input type="text" class="form-control" id="staffFilter" placeholder="担当者名を入力...">
+                <div class="col-md-2">
+                    <label for="staffFilter" class="form-label">担当者名</label>
+                    <input type="text" class="form-control" id="staffFilter" placeholder="担当者名...">
                 </div>
-                <div class="col-md-4">
-                    <label for="regionFilter" class="form-label">地区№でフィルター</label>
-                    <input type="text" class="form-control" id="regionFilter" placeholder="地区№を入力...">
+                <div class="col-md-2">
+                    <label for="regionFilter" class="form-label">地区№</label>
+                    <input type="text" class="form-control" id="regionFilter" placeholder="地区№...">
                 </div>
-                <div class="col-md-4">
-                    <label for="departmentFilter" class="form-label">所属№でフィルター</label>
-                    <input type="text" class="form-control" id="departmentFilter" placeholder="所属№を入力...">
+                <div class="col-md-2">
+                    <label for="departmentFilter" class="form-label">所属№</label>
+                    <input type="text" class="form-control" id="departmentFilter" placeholder="所属№...">
+                </div>
+                <div class="col-md-2">
+                    <label for="dateFilter" class="form-label">受注カウント日付</label>
+                    <input type="date" class="form-control" id="dateFilter">
+                </div>
+                <div class="col-md-2">
+                    <label for="monthFilter" class="form-label">受注カウント月</label>
+                    <input type="month" class="form-control" id="monthFilter">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="button" class="btn btn-secondary w-100" id="clearFilters">フィルタークリア</button>
                 </div>
             </div>
             
@@ -1485,7 +1561,8 @@ export class ReportGenerator {
                     <thead class="table-dark">
                         <tr>
                             <th>#</th>
-                            <th>日付</th>
+                            <th>日付（A列）</th>
+                            <th>受注カウント日付</th>
                             <th>担当者名</th>
                             <th>地区№</th>
                             <th>所属№</th>

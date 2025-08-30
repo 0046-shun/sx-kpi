@@ -612,21 +612,17 @@ export class App {
         if (monthlyData.length === 0) {
             return;
         }
-        // 月報データの最初の行から月を取得
-        const firstRow = monthlyData[0];
-        if (firstRow && firstRow.date) {
-            const year = firstRow.date.getFullYear();
-            const month = firstRow.date.getMonth();
-            const targetDate = new Date(year, month, 15); // 月の15日を基準に設定
-            const staffData = this.reportGenerator.generateStaffData(monthlyData, targetDate);
-            // 担当別データのHTMLを生成して表示
-            const staffContainer = document.getElementById('staffDataContent');
-            if (staffContainer) {
-                const monthHeader = this.createMonthHeaderForStaffData(monthString);
-                staffContainer.innerHTML = monthHeader + this.reportGenerator.createStaffDataHTML(staffData);
-            }
-            this.setupStaffDataSearchAndSort();
+        // 月報生成時に指定された月を直接使用
+        const [year, month] = monthString.split('-').map(Number);
+        const targetDate = new Date(year, month - 1, 15); // monthは1ベースなので-1
+        const staffData = this.reportGenerator.generateStaffData(monthlyData, targetDate);
+        // 担当別データのHTMLを生成して表示
+        const staffContainer = document.getElementById('staffDataContent');
+        if (staffContainer) {
+            const monthHeader = this.createMonthHeaderForStaffData(monthString);
+            staffContainer.innerHTML = monthHeader + this.reportGenerator.createStaffDataHTML(staffData);
         }
+        this.setupStaffDataSearchAndSort();
     }
     // 担当別データ用の月ヘッダーを生成
     createMonthHeaderForStaffData(monthString) {
@@ -974,6 +970,9 @@ export class App {
         const staffFilter = document.getElementById('staffFilter');
         const regionFilter = document.getElementById('regionFilter');
         const departmentFilter = document.getElementById('departmentFilter');
+        const dateFilter = document.getElementById('dateFilter');
+        const monthFilter = document.getElementById('monthFilter');
+        const clearFiltersBtn = document.getElementById('clearFilters');
         const table = document.getElementById('dataConfirmationTable');
         if (!table)
             return;
@@ -981,18 +980,49 @@ export class App {
             const staffValue = staffFilter?.value.toLowerCase() || '';
             const regionValue = regionFilter?.value.toLowerCase() || '';
             const departmentValue = departmentFilter?.value.toLowerCase() || '';
+            const dateValue = dateFilter?.value || '';
+            const monthValue = monthFilter?.value || '';
             const rows = table.querySelectorAll('tbody tr');
             let visibleCount = 0;
             rows.forEach((row) => {
                 const cells = row.querySelectorAll('td');
-                if (cells.length >= 5) {
-                    const staffName = cells[2]?.textContent?.toLowerCase() || '';
-                    const regionNo = cells[3]?.textContent?.toLowerCase() || '';
-                    const departmentNo = cells[4]?.textContent?.toLowerCase() || '';
+                if (cells.length >= 10) { // 列数が増えたので10に変更
+                    const staffName = cells[3]?.textContent?.toLowerCase() || ''; // インデックス調整
+                    const regionNo = cells[4]?.textContent?.toLowerCase() || ''; // インデックス調整
+                    const departmentNo = cells[5]?.textContent?.toLowerCase() || ''; // インデックス調整
+                    const effectiveDate = cells[2]?.textContent || ''; // 受注カウント日付
                     const matchesStaff = !staffValue || staffName.includes(staffValue);
                     const matchesRegion = !regionValue || regionNo.includes(regionValue);
                     const matchesDepartment = !departmentValue || departmentNo.includes(departmentValue);
-                    if (matchesStaff && matchesRegion && matchesDepartment) {
+                    // 日付フィルター（完全一致）
+                    let matchesDate = true;
+                    if (dateValue && effectiveDate !== 'N/A') {
+                        try {
+                            const effectiveDateObj = new Date(effectiveDate);
+                            const filterDateObj = new Date(dateValue);
+                            matchesDate = effectiveDateObj.toDateString() === filterDateObj.toDateString();
+                        }
+                        catch (e) {
+                            matchesDate = false;
+                        }
+                    }
+                    // 月フィルター（年月一致）
+                    let matchesMonth = true;
+                    if (monthValue && effectiveDate !== 'N/A') {
+                        try {
+                            const effectiveDateObj = new Date(effectiveDate);
+                            const filterMonthObj = new Date(monthValue);
+                            matchesMonth = effectiveDateObj.getFullYear() === filterMonthObj.getFullYear() &&
+                                effectiveDateObj.getMonth() === filterMonthObj.getMonth();
+                        }
+                        catch (e) {
+                            matchesMonth = false;
+                        }
+                    }
+                    // 受注判定チェック（日報と同じロジック）
+                    const orderStatus = row.getAttribute('data-order-status');
+                    const matchesOrderLogic = orderStatus === 'order';
+                    if (matchesStaff && matchesRegion && matchesDepartment && matchesDate && matchesMonth && matchesOrderLogic) {
                         row.style.display = '';
                         visibleCount++;
                     }
@@ -1007,6 +1037,20 @@ export class App {
                 infoAlert.innerHTML = `<small>※ フィルター適用中（表示件数: ${visibleCount}件 / 総件数: ${this.currentData.length}件）</small>`;
             }
         };
+        // フィルタークリア機能
+        const clearFilters = () => {
+            if (staffFilter)
+                staffFilter.value = '';
+            if (regionFilter)
+                regionFilter.value = '';
+            if (departmentFilter)
+                departmentFilter.value = '';
+            if (dateFilter)
+                dateFilter.value = '';
+            if (monthFilter)
+                monthFilter.value = '';
+            filterData();
+        };
         // フィルター入力時のイベントリスナーを設定
         if (staffFilter)
             staffFilter.addEventListener('input', filterData);
@@ -1014,6 +1058,12 @@ export class App {
             regionFilter.addEventListener('input', filterData);
         if (departmentFilter)
             departmentFilter.addEventListener('input', filterData);
+        if (dateFilter)
+            dateFilter.addEventListener('input', filterData);
+        if (monthFilter)
+            monthFilter.addEventListener('input', filterData);
+        if (clearFiltersBtn)
+            clearFiltersBtn.addEventListener('click', clearFilters);
     }
     // エクスポートボタンの設定
     setupExportButtons(type, report) {

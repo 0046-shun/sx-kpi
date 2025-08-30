@@ -23,6 +23,12 @@ export declare class ExcelProcessor {
      */
     isOrderForDate(row: any, targetDate: Date, isDailyReport?: boolean): boolean;
     /**
+     * K列から日付を抽出する統一された関数
+     * @param confirmationStr K列の文字列
+     * @returns 抽出された月と日、またはnull
+     */
+    private extractDateFromKColumn;
+    /**
      * 単独契約かどうかを判定
      */
     isSingle(row: any): boolean;

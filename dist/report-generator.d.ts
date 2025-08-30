@@ -45,6 +45,12 @@ export declare class ReportGenerator {
     private normalizeStaffName;
     exportStaffDataToCSV(staffData: StaffData[]): Promise<void>;
     createStaffDataHTML(staffData: StaffData[]): string;
+    /**
+     * 受注カウント日付を計算（A列とK列を比較して遅い日付を採用）
+     * @param row データ行
+     * @returns 受注カウントに使用される日付
+     */
+    private calculateEffectiveDate;
     createDataConfirmationHTML(data: any[]): string;
     private createDailyReportPDFHTML;
     private createRegionStatsPDFHTML;
