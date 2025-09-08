@@ -3,6 +3,7 @@ export declare class App {
     private reportGenerator;
     private dataManager;
     private calendarManager;
+    private biTool;
     private currentData;
     private calendarStates;
     constructor();
@@ -62,4 +63,7 @@ export declare class App {
     private addSelectedDates;
     private isSameDate;
     private showLoading;
+    private showBITool;
+    private setupBIEventListeners;
+    private updateBIDashboard;
 }

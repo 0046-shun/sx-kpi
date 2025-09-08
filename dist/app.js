@@ -2,6 +2,7 @@ import { ExcelProcessor } from './excel-processor.js';
 import { ReportGenerator } from './report-generator.js';
 import { DataManager } from './data-manager.js';
 import { CalendarManager } from './calendar-manager.js';
+import { BITool } from './bi-tool.js';
 export class App {
     constructor() {
         this.currentData = [];
@@ -10,6 +11,7 @@ export class App {
         this.calendarManager = new CalendarManager();
         this.reportGenerator = new ReportGenerator(this.excelProcessor, this.calendarManager);
         this.dataManager = DataManager.getInstance();
+        this.biTool = new BITool(this.excelProcessor, this.calendarManager);
         this.initializeApp();
     }
     initializeApp() {
@@ -82,6 +84,13 @@ export class App {
         document.addEventListener('holidaySettingsChanged', (e) => {
             this.handleHolidaySettingsChanged(e.detail);
         });
+        // BIツールタブのイベントリスナー
+        const biTab = document.getElementById('bi-tab');
+        if (biTab) {
+            biTab.addEventListener('click', () => {
+                this.showBITool();
+            });
+        }
     }
     initializeCalendarManager() {
         // 公休日・禁止日設定の初期化
@@ -1449,6 +1458,75 @@ export class App {
                 loadingSpinner.style.display = 'none';
             }
         }
+    }
+    // BIツールの表示
+    showBITool() {
+        const biToolContent = document.getElementById('biToolContent');
+        if (!biToolContent)
+            return;
+        if (this.currentData.length === 0) {
+            biToolContent.innerHTML = `
+                <div class="alert alert-warning">
+                    <h5><i class="fas fa-exclamation-triangle me-2"></i>データがありません</h5>
+                    <p>BI分析を行うには、まずExcelファイルをアップロードしてデータを読み込んでください。</p>
+                </div>
+            `;
+            return;
+        }
+        // 現在の月を設定
+        const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM形式
+        // BIダッシュボードを生成
+        const dashboardHTML = this.biTool.createBIDashboard(this.currentData, currentMonth);
+        biToolContent.innerHTML = dashboardHTML;
+        // 月選択の初期値を設定
+        const monthSelector = document.getElementById('monthSelector');
+        if (monthSelector) {
+            monthSelector.value = currentMonth;
+        }
+        // グラフを描画
+        setTimeout(() => {
+            this.biTool.renderCharts(this.currentData, currentMonth);
+            this.setupBIEventListeners();
+        }, 100);
+    }
+    // BIツールのイベントリスナーを設定
+    setupBIEventListeners() {
+        const updateBIBtn = document.getElementById('updateBI');
+        const monthSelector = document.getElementById('monthSelector');
+        const debugBtn = document.getElementById('debugData');
+        const showAllDataBtn = document.getElementById('showAllData');
+        if (updateBIBtn && monthSelector) {
+            updateBIBtn.addEventListener('click', () => {
+                const selectedMonth = monthSelector.value;
+                if (selectedMonth) {
+                    this.updateBIDashboard(selectedMonth);
+                }
+            });
+        }
+        if (showAllDataBtn) {
+            showAllDataBtn.addEventListener('click', () => {
+                this.updateBIDashboard(''); // 空文字で全データ表示
+            });
+        }
+    }
+    // BIダッシュボードを更新
+    updateBIDashboard(targetMonth) {
+        const biToolContent = document.getElementById('biToolContent');
+        if (!biToolContent)
+            return;
+        // BIダッシュボードを再生成
+        const dashboardHTML = this.biTool.createBIDashboard(this.currentData, targetMonth);
+        biToolContent.innerHTML = dashboardHTML;
+        // 月選択の値を設定
+        const monthSelector = document.getElementById('monthSelector');
+        if (monthSelector) {
+            monthSelector.value = targetMonth;
+        }
+        // グラフを再描画
+        setTimeout(() => {
+            this.biTool.renderCharts(this.currentData, targetMonth);
+            this.setupBIEventListeners();
+        }, 100);
     }
 }
 // アプリケーションの初期化

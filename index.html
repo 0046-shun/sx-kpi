@@ -1154,6 +1154,11 @@
                             <i class="fas fa-users me-2"></i>担当別データ
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="bi-tab" data-bs-toggle="tab" data-bs-target="#bi" type="button" role="tab">
+                            <i class="fas fa-chart-line me-2"></i>BIツール
+                        </button>
+                    </li>
                 </ul>
                 
                 <!-- タブコンテンツ -->
@@ -1209,6 +1214,23 @@
                         </div>
                     </div>
 
+                    <!-- BIツールタブ -->
+                    <div class="tab-pane fade" id="bi" role="tabpanel">
+                        <div class="card mt-3">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>BIツール</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="biToolContent">
+                                    <div class="text-center text-muted py-5">
+                                        <i class="fas fa-chart-line fa-3x mb-3"></i>
+                                        <p>ExcelファイルをアップロードしてBI分析を開始してください</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- 担当別データタブ -->
                     <div class="tab-pane fade" id="staff-data" role="tabpanel">
                         <div class="card mt-3">
@@ -1243,6 +1265,7 @@
     <script src="https://unpkg.com/jspdf@latest/dist/jspdf.umd.min.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- アプリケーションスクリプト -->
     <script type="module" src="dist/app.js"></script>
