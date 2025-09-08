@@ -88,7 +88,10 @@ export class App {
         const biTab = document.getElementById('bi-tab');
         if (biTab) {
             biTab.addEventListener('click', () => {
-                this.showBITool();
+                // 少し遅延してからBIツールを表示（Bootstrapタブの切り替えを待つ）
+                setTimeout(() => {
+                    this.showBITool();
+                }, 100);
             });
         }
     }
@@ -489,6 +492,12 @@ export class App {
             this.showMessage(`ファイル「${file.name}」の読み込みが完了しました。総データ件数: ${data.length}件`, 'success');
             // 担当別データを生成
             this.updateStaffData();
+            // BIツールタブがアクティブな場合はBIツールを更新
+            const biTab = document.getElementById('bi-tab');
+            const biTabPane = document.getElementById('bi');
+            if (biTab && biTabPane && biTab.classList.contains('active') && biTabPane.classList.contains('active')) {
+                this.showBITool();
+            }
         }
         catch (error) {
             console.error('ファイル処理エラー:', error);
@@ -1464,18 +1473,9 @@ export class App {
         const biToolContent = document.getElementById('biToolContent');
         if (!biToolContent)
             return;
-        if (this.currentData.length === 0) {
-            biToolContent.innerHTML = `
-                <div class="alert alert-warning">
-                    <h5><i class="fas fa-exclamation-triangle me-2"></i>データがありません</h5>
-                    <p>BI分析を行うには、まずExcelファイルをアップロードしてデータを読み込んでください。</p>
-                </div>
-            `;
-            return;
-        }
         // 現在の月を設定
         const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM形式
-        // BIダッシュボードを生成
+        // BIダッシュボードを生成（データがなくても生成）
         const dashboardHTML = this.biTool.createBIDashboard(this.currentData, currentMonth);
         biToolContent.innerHTML = dashboardHTML;
         // 月選択の初期値を設定
@@ -1483,11 +1483,13 @@ export class App {
         if (monthSelector) {
             monthSelector.value = currentMonth;
         }
-        // グラフを描画
-        setTimeout(() => {
-            this.biTool.renderCharts(this.currentData, currentMonth);
-            this.setupBIEventListeners();
-        }, 100);
+        // グラフを描画（データがある場合のみ）
+        if (this.currentData.length > 0) {
+            setTimeout(() => {
+                this.biTool.renderCharts(this.currentData, currentMonth);
+                this.setupBIEventListeners();
+            }, 100);
+        }
     }
     // BIツールのイベントリスナーを設定
     setupBIEventListeners() {
