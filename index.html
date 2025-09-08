@@ -906,13 +906,30 @@
         }
         
         .sidebar-hidden #mainContent {
-            flex: 0 0 100%;
-            max-width: 100%;
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+            width: 100% !important;
         }
         
         .sidebar-hidden .row {
             margin-left: 0;
             margin-right: 0;
+        }
+        
+        .sidebar-hidden .container-fluid {
+            padding-left: 15px;
+            padding-right: 15px;
+        }
+        
+        /* サイドバー非表示時のレイアウト調整 */
+        .sidebar-hidden .row > .col-md-3 {
+            display: none !important;
+        }
+        
+        .sidebar-hidden .row > .col-md-9 {
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+            width: 100% !important;
         }
     </style>
 </head>
