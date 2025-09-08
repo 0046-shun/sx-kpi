@@ -797,8 +797,12 @@ export class ReportGenerator {
                 </div>
             `;
             document.body.appendChild(messageDiv);
-            // PDF用のHTML要素を動的に作成
-            const pdfContainer = this.createPDFHTML(report, type);
+            // メインスレッドを解放
+            await new Promise(resolve => setTimeout(resolve, 50));
+            // PDF用のHTML要素を動的に作成（非同期で処理）
+            const pdfContainer = await this.createPDFHTMLAsync(report, type);
+            // メインスレッドを解放
+            await new Promise(resolve => setTimeout(resolve, 50));
             // コンテナを画面外に配置（レンダリング用）
             // A4サイズ（210mm）から左右余白（20mm）を引いた幅に設定
             const containerWidth = 794 - (10 * 794 / 210); // 約715px
@@ -813,8 +817,10 @@ export class ReportGenerator {
                 z-index: -1;
             `;
             document.body.appendChild(pdfContainer);
+            // メインスレッドを解放
+            await new Promise(resolve => setTimeout(resolve, 50));
             // コンテンツが確実にレンダリングされるまで待機
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 200));
             // jsPDFインスタンス（A4サイズ、余白10mm）
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF({
@@ -846,8 +852,51 @@ export class ReportGenerator {
             if (pdfContainer && pdfContainer.parentNode) {
                 pdfContainer.parentNode.removeChild(pdfContainer);
             }
-            // PDFをダウンロード
-            const fileName = `${type === 'daily' ? '日報' : '月報'}_${new Date().toISOString().split('T')[0]}.pdf`;
+            // PDFをダウンロード（対象日付・月を使用）
+            let fileName = '';
+            if (type === 'daily') {
+                // 日報の場合：対象日付を使用
+                if (report.selectedDate) {
+                    const selectedDate = new Date(report.selectedDate);
+                    const year = selectedDate.getFullYear();
+                    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(selectedDate.getDate()).padStart(2, '0');
+                    fileName = `${year}-${month}-${day}.pdf`;
+                }
+                else {
+                    // フォールバック：現在日付
+                    fileName = `${new Date().toISOString().split('T')[0]}.pdf`;
+                }
+            }
+            else {
+                // 月報の場合：対象月を使用
+                if (report.selectedMonth) {
+                    // selectedMonthが "2025-08" 形式の場合
+                    if (typeof report.selectedMonth === 'string' && report.selectedMonth.includes('-')) {
+                        fileName = `${report.selectedMonth}.pdf`;
+                    }
+                    else if (report.selectedYear && report.selectedMonth) {
+                        // selectedMonthが数値の場合
+                        const year = report.selectedYear;
+                        const month = String(report.selectedMonth).padStart(2, '0');
+                        fileName = `${year}-${month}.pdf`;
+                    }
+                    else {
+                        // フォールバック：現在年月
+                        const now = new Date();
+                        const year = now.getFullYear();
+                        const month = String(now.getMonth() + 1).padStart(2, '0');
+                        fileName = `${year}-${month}.pdf`;
+                    }
+                }
+                else {
+                    // フォールバック：現在年月
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    const month = String(now.getMonth() + 1).padStart(2, '0');
+                    fileName = `${year}-${month}.pdf`;
+                }
+            }
             pdf.save(fileName);
             // 完了メッセージ
             messageDiv.innerHTML = `
@@ -899,6 +948,8 @@ export class ReportGenerator {
                     <div style="font-size: 14px; opacity: 0.9;">${pageNumber}枚目 / ${pages.length}枚</div>
                 </div>
             `;
+            // メインスレッドを解放
+            await new Promise(resolve => setTimeout(resolve, 50));
             // 各ページを個別にhtml2canvasで処理
             // HTMLコンテナと同じ幅を使用
             const canvasWidth = 794 - (19 * 794 / 210); // 約711px（微調整）
@@ -915,6 +966,8 @@ export class ReportGenerator {
                 letterRendering: true,
                 imageTimeout: 10000
             });
+            // メインスレッドを解放
+            await new Promise(resolve => setTimeout(resolve, 50));
             // 2ページ目以降は新しいページを追加
             if (i > 0) {
                 pdf.addPage();
@@ -939,6 +992,8 @@ export class ReportGenerator {
             const x = marginX + (availW - drawWidth) / 2;
             const y = marginY;
             pdf.addImage(imgData, 'PNG', x, y, drawWidth, drawHeight, undefined, 'FAST');
+            // メインスレッドを解放
+            await new Promise(resolve => setTimeout(resolve, 50));
         }
         // メッセージ更新
         messageDiv.innerHTML = `
@@ -982,6 +1037,54 @@ export class ReportGenerator {
             }
             htmlContent = this.createDailyReportPDFHTML(report, dateText);
         }
+        // innerHTMLではなく、insertAdjacentHTMLを使用
+        container.insertAdjacentHTML('beforeend', htmlContent);
+        return container;
+    }
+    async createPDFHTMLAsync(report, type) {
+        const container = document.createElement('div');
+        container.className = 'pdf-container';
+        // メインスレッドを解放
+        await new Promise(resolve => setTimeout(resolve, 10));
+        let htmlContent = '';
+        // 新しく作成したPDF用メソッドを使用
+        if (type === 'daily') {
+            // 日付テキストを生成
+            let dateText = '';
+            if (report.selectedDate) {
+                const selectedDate = new Date(report.selectedDate);
+                dateText = selectedDate.toLocaleDateString('ja-JP');
+            }
+            else {
+                const now = new Date();
+                dateText = now.toLocaleDateString('ja-JP');
+            }
+            // メインスレッドを解放
+            await new Promise(resolve => setTimeout(resolve, 10));
+            htmlContent = this.createDailyReportPDFHTML(report, dateText);
+        }
+        else if (type === 'monthly') {
+            // メインスレッドを解放
+            await new Promise(resolve => setTimeout(resolve, 10));
+            htmlContent = this.createMonthlyReportPDFHTML(report);
+        }
+        else {
+            // フォールバック
+            let dateText = '';
+            if (report.selectedDate) {
+                const selectedDate = new Date(report.selectedDate);
+                dateText = selectedDate.toLocaleDateString('ja-JP');
+            }
+            else {
+                const now = new Date();
+                dateText = now.toLocaleDateString('ja-JP');
+            }
+            // メインスレッドを解放
+            await new Promise(resolve => setTimeout(resolve, 10));
+            htmlContent = this.createDailyReportPDFHTML(report, dateText);
+        }
+        // メインスレッドを解放
+        await new Promise(resolve => setTimeout(resolve, 10));
         // innerHTMLではなく、insertAdjacentHTMLを使用
         container.insertAdjacentHTML('beforeend', htmlContent);
         return container;

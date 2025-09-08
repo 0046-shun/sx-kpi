@@ -35,6 +35,7 @@ export declare class ReportGenerator {
     exportToPDF(report: any, type: string): Promise<void>;
     private exportMonthlyReportToPDF;
     private createPDFHTML;
+    private createPDFHTMLAsync;
     exportToCSV(report: any, type: string): Promise<void>;
     private exportStaffRankingCSVs;
     private downloadCSV;
