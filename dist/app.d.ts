@@ -51,6 +51,7 @@ export declare class App {
     private getCurrentMonthlyData;
     private generateMonthlyReportForFileDrop;
     private setupDataFilters;
+    private updateActiveFiltersDisplay;
     private setupExportButtons;
     private showMessage;
     private setDefaultDate;

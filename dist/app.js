@@ -982,11 +982,18 @@ export class App {
             const departmentValue = departmentFilter?.value.toLowerCase() || '';
             const dateValue = dateFilter?.value || '';
             const monthValue = monthFilter?.value || '';
+            // 公休日・禁止日フィルター
+            const holidayConstructionFilter = document.getElementById('holidayConstructionFilter');
+            const prohibitedConstructionFilter = document.getElementById('prohibitedConstructionFilter');
+            const normalConstructionFilter = document.getElementById('normalConstructionFilter');
+            const holidayConstructionOnly = holidayConstructionFilter?.checked || false;
+            const prohibitedConstructionOnly = prohibitedConstructionFilter?.checked || false;
+            const normalConstructionOnly = normalConstructionFilter?.checked || false;
             const rows = table.querySelectorAll('tbody tr');
             let visibleCount = 0;
             rows.forEach((row) => {
                 const cells = row.querySelectorAll('td');
-                if (cells.length >= 10) { // 列数が増えたので10に変更
+                if (cells.length >= 13) { // 列数が増えたので13に変更
                     const staffName = cells[3]?.textContent?.toLowerCase() || ''; // インデックス調整
                     const regionNo = cells[4]?.textContent?.toLowerCase() || ''; // インデックス調整
                     const departmentNo = cells[5]?.textContent?.toLowerCase() || ''; // インデックス調整
@@ -1022,7 +1029,22 @@ export class App {
                     // 受注判定チェック（日報と同じロジック）
                     const orderStatus = row.getAttribute('data-order-status');
                     const matchesOrderLogic = orderStatus === 'order';
-                    if (matchesStaff && matchesRegion && matchesDepartment && matchesDate && matchesMonth && matchesOrderLogic) {
+                    // 公休日・禁止日フィルター
+                    let matchesConstruction = true;
+                    if (holidayConstructionOnly || prohibitedConstructionOnly || normalConstructionOnly) {
+                        const isHolidayConstruction = row.getAttribute('data-holiday-construction') === 'true';
+                        const isProhibitedConstruction = row.getAttribute('data-prohibited-construction') === 'true';
+                        if (holidayConstructionOnly) {
+                            matchesConstruction = isHolidayConstruction;
+                        }
+                        else if (prohibitedConstructionOnly) {
+                            matchesConstruction = isProhibitedConstruction;
+                        }
+                        else if (normalConstructionOnly) {
+                            matchesConstruction = !isHolidayConstruction && !isProhibitedConstruction;
+                        }
+                    }
+                    if (matchesStaff && matchesRegion && matchesDepartment && matchesDate && matchesMonth && matchesOrderLogic && matchesConstruction) {
                         row.style.display = '';
                         visibleCount++;
                     }
@@ -1049,21 +1071,92 @@ export class App {
                 dateFilter.value = '';
             if (monthFilter)
                 monthFilter.value = '';
+            // 公休日・禁止日フィルターもクリア
+            const holidayConstructionFilter = document.getElementById('holidayConstructionFilter');
+            const prohibitedConstructionFilter = document.getElementById('prohibitedConstructionFilter');
+            const normalConstructionFilter = document.getElementById('normalConstructionFilter');
+            if (holidayConstructionFilter)
+                holidayConstructionFilter.checked = false;
+            if (prohibitedConstructionFilter)
+                prohibitedConstructionFilter.checked = false;
+            if (normalConstructionFilter)
+                normalConstructionFilter.checked = false;
             filterData();
+            this.updateActiveFiltersDisplay();
         };
-        // フィルター入力時のイベントリスナーを設定
-        if (staffFilter)
-            staffFilter.addEventListener('input', filterData);
-        if (regionFilter)
-            regionFilter.addEventListener('input', filterData);
-        if (departmentFilter)
-            departmentFilter.addEventListener('input', filterData);
-        if (dateFilter)
-            dateFilter.addEventListener('input', filterData);
-        if (monthFilter)
-            monthFilter.addEventListener('input', filterData);
+        // フィルター実行ボタン
+        const applyFiltersBtn = document.getElementById('applyFilters');
+        // フィルター入力時のイベントリスナーを設定（自動実行を無効化）
+        // if (staffFilter) staffFilter.addEventListener('input', filterData);
+        // if (regionFilter) regionFilter.addEventListener('input', filterData);
+        // if (departmentFilter) departmentFilter.addEventListener('input', filterData);
+        // if (dateFilter) dateFilter.addEventListener('input', filterData);
+        // if (monthFilter) monthFilter.addEventListener('input', filterData);
+        // 公休日・禁止日フィルターのイベントリスナー（自動実行を無効化）
+        const holidayConstructionFilter = document.getElementById('holidayConstructionFilter');
+        const prohibitedConstructionFilter = document.getElementById('prohibitedConstructionFilter');
+        const normalConstructionFilter = document.getElementById('normalConstructionFilter');
+        // if (holidayConstructionFilter) holidayConstructionFilter.addEventListener('change', filterData);
+        // if (prohibitedConstructionFilter) prohibitedConstructionFilter.addEventListener('change', filterData);
+        // if (normalConstructionFilter) normalConstructionFilter.addEventListener('change', filterData);
+        // フィルター実行ボタンのイベントリスナー
+        if (applyFiltersBtn)
+            applyFiltersBtn.addEventListener('click', () => {
+                filterData();
+                this.updateActiveFiltersDisplay();
+            });
         if (clearFiltersBtn)
             clearFiltersBtn.addEventListener('click', clearFilters);
+    }
+    // アクティブフィルター表示を更新
+    updateActiveFiltersDisplay() {
+        const activeFiltersDisplay = document.getElementById('activeFiltersDisplay');
+        const activeFiltersList = document.getElementById('activeFiltersList');
+        if (!activeFiltersDisplay || !activeFiltersList)
+            return;
+        const filters = [];
+        // 基本フィルター
+        const staffFilter = document.getElementById('staffFilter');
+        const regionFilter = document.getElementById('regionFilter');
+        const departmentFilter = document.getElementById('departmentFilter');
+        const dateFilter = document.getElementById('dateFilter');
+        const monthFilter = document.getElementById('monthFilter');
+        if (staffFilter?.value) {
+            filters.push(`<span class="badge bg-primary me-1">担当者名: ${staffFilter.value}</span>`);
+        }
+        if (regionFilter?.value) {
+            filters.push(`<span class="badge bg-primary me-1">地区№: ${regionFilter.value}</span>`);
+        }
+        if (departmentFilter?.value) {
+            filters.push(`<span class="badge bg-primary me-1">所属№: ${departmentFilter.value}</span>`);
+        }
+        if (dateFilter?.value) {
+            filters.push(`<span class="badge bg-primary me-1">受注カウント日付: ${dateFilter.value}</span>`);
+        }
+        if (monthFilter?.value) {
+            filters.push(`<span class="badge bg-primary me-1">受注カウント月: ${monthFilter.value}</span>`);
+        }
+        // 公休日・禁止日フィルター
+        const holidayConstructionFilter = document.getElementById('holidayConstructionFilter');
+        const prohibitedConstructionFilter = document.getElementById('prohibitedConstructionFilter');
+        const normalConstructionFilter = document.getElementById('normalConstructionFilter');
+        if (holidayConstructionFilter?.checked) {
+            filters.push(`<span class="badge bg-warning me-1"><i class="fas fa-calendar-day me-1"></i>公休日施工のみ</span>`);
+        }
+        if (prohibitedConstructionFilter?.checked) {
+            filters.push(`<span class="badge bg-danger me-1"><i class="fas fa-ban me-1"></i>禁止日施工のみ</span>`);
+        }
+        if (normalConstructionFilter?.checked) {
+            filters.push(`<span class="badge bg-success me-1"><i class="fas fa-calendar-check me-1"></i>通常日施工のみ</span>`);
+        }
+        // 表示/非表示
+        if (filters.length > 0) {
+            activeFiltersList.innerHTML = filters.join('');
+            activeFiltersDisplay.style.display = 'block';
+        }
+        else {
+            activeFiltersDisplay.style.display = 'none';
+        }
     }
     // エクスポートボタンの設定
     setupExportButtons(type, report) {

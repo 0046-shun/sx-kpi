@@ -1591,8 +1591,25 @@ export class ReportGenerator {
             const effectiveDate = this.calculateEffectiveDate(row);
             // 受注判定結果を計算（日報と同じロジック）
             const isOrderForDate = this.excelProcessor.isOrderForDate(row, effectiveDate || row.date, true);
+            // 公休日・禁止日判定
+            const isHolidayConstruction = this.isHolidayConstruction(row);
+            const isProhibitedConstruction = this.isProhibitedConstruction(row);
+            // 公休日・禁止日の表示
+            let constructionStatus = '';
+            if (isHolidayConstruction) {
+                constructionStatus = '<span class="badge bg-warning"><i class="fas fa-calendar-day me-1"></i>公休日</span>';
+            }
+            else if (isProhibitedConstruction) {
+                constructionStatus = '<span class="badge bg-danger"><i class="fas fa-ban me-1"></i>禁止日</span>';
+            }
+            else {
+                constructionStatus = '<span class="badge bg-success"><i class="fas fa-calendar-check me-1"></i>通常日</span>';
+            }
             return `
-                <tr data-order-status="${isOrderForDate ? 'order' : 'non-order'}" data-effective-date="${effectiveDate ? effectiveDate.toISOString() : ''}">
+                <tr data-order-status="${isOrderForDate ? 'order' : 'non-order'}" 
+                    data-effective-date="${effectiveDate ? effectiveDate.toISOString() : ''}"
+                    data-holiday-construction="${isHolidayConstruction}"
+                    data-prohibited-construction="${isProhibitedConstruction}">
                     <td>${index + 1}</td>
                     <td>${row.date ? row.date.toLocaleDateString() : 'N/A'}</td>
                     <td>${effectiveDate ? effectiveDate.toLocaleDateString() : 'N/A'}</td>
@@ -1603,6 +1620,9 @@ export class ReportGenerator {
                     <td>${row.contractorAge || ''}</td>
                     <td>${row.confirmation || ''}</td>
                     <td>${row.confirmationDateTime || ''}</td>
+                    <td>${row.startDate ? row.startDate.toLocaleDateString() : 'N/A'}</td>
+                    <td>${row.completionDate ? row.completionDate.toLocaleDateString() : 'N/A'}</td>
+                    <td>${constructionStatus}</td>
                 </tr>
             `;
         }).join('');
@@ -1612,31 +1632,78 @@ export class ReportGenerator {
                 <p>総データ件数: <strong>${data.length}</strong>件</p>
             </div>
             
-            <!-- フィルター機能 -->
-            <div class="row mb-3">
-                <div class="col-md-2">
-                    <label for="staffFilter" class="form-label">担当者名</label>
-                    <input type="text" class="form-control" id="staffFilter" placeholder="担当者名...">
+            <!-- 統合フィルター機能 -->
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0"><i class="fas fa-filter me-2"></i>データフィルター</h6>
                 </div>
-                <div class="col-md-2">
-                    <label for="regionFilter" class="form-label">地区№</label>
-                    <input type="text" class="form-control" id="regionFilter" placeholder="地区№...">
-                </div>
-                <div class="col-md-2">
-                    <label for="departmentFilter" class="form-label">所属№</label>
-                    <input type="text" class="form-control" id="departmentFilter" placeholder="所属№...">
-                </div>
-                <div class="col-md-2">
-                    <label for="dateFilter" class="form-label">受注カウント日付</label>
-                    <input type="date" class="form-control" id="dateFilter">
-                </div>
-                <div class="col-md-2">
-                    <label for="monthFilter" class="form-label">受注カウント月</label>
-                    <input type="month" class="form-control" id="monthFilter">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">&nbsp;</label>
-                    <button type="button" class="btn btn-secondary w-100" id="clearFilters">フィルタークリア</button>
+                <div class="card-body">
+                    <!-- 基本フィルター -->
+                    <div class="row mb-3">
+                        <div class="col-md-2">
+                            <label for="staffFilter" class="form-label">担当者名</label>
+                            <input type="text" class="form-control" id="staffFilter" placeholder="担当者名...">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="regionFilter" class="form-label">地区№</label>
+                            <input type="text" class="form-control" id="regionFilter" placeholder="地区№...">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="departmentFilter" class="form-label">所属№</label>
+                            <input type="text" class="form-control" id="departmentFilter" placeholder="所属№...">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="dateFilter" class="form-label">受注カウント日付</label>
+                            <input type="date" class="form-control" id="dateFilter">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="monthFilter" class="form-label">受注カウント月</label>
+                            <input type="month" class="form-control" id="monthFilter">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-primary" id="applyFilters">
+                                    <i class="fas fa-search me-1"></i>フィルター実行
+                                </button>
+                                <button type="button" class="btn btn-secondary" id="clearFilters">
+                                    <i class="fas fa-times me-1"></i>クリア
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 公休日・禁止日フィルター -->
+                    <div class="d-flex align-items-center gap-4" style="position: relative; top: -38px; margin-bottom: -38px;">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="holidayConstructionFilter" style="transform: scale(1.2);">
+                            <label class="form-check-label fs-5" for="holidayConstructionFilter">
+                                公休日
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="prohibitedConstructionFilter" style="transform: scale(1.2);">
+                            <label class="form-check-label fs-5" for="prohibitedConstructionFilter">
+                                禁止日
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="normalConstructionFilter" style="transform: scale(1.2);">
+                            <label class="form-check-label fs-5" for="normalConstructionFilter">
+                                通常
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- アクティブフィルター表示 -->
+                    <div class="row mt-3">
+                        <div class="col-md-12">
+                            <div id="activeFiltersDisplay" class="alert alert-info" style="display: none;">
+                                <h6 class="mb-2"><i class="fas fa-info-circle me-1"></i>適用中のフィルター条件:</h6>
+                                <div id="activeFiltersList"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -1654,6 +1721,9 @@ export class ReportGenerator {
                             <th>年齢</th>
                             <th>確認</th>
                             <th>確認者日時</th>
+                            <th>着工日</th>
+                            <th>完工予定日</th>
+                            <th>公休日・禁止日</th>
                         </tr>
                     </thead>
                     <tbody>
