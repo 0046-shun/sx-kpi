@@ -94,6 +94,13 @@ export class App {
                 }, 100);
             });
         }
+        // サイドバートグルボタンのイベントリスナー
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', () => {
+                this.toggleSidebar();
+            });
+        }
     }
     initializeCalendarManager() {
         // 公休日・禁止日設定の初期化
@@ -1529,6 +1536,25 @@ export class App {
             this.biTool.renderCharts(this.currentData, targetMonth);
             this.setupBIEventListeners();
         }, 100);
+    }
+    // サイドバーの表示/非表示を切り替え
+    toggleSidebar() {
+        const body = document.body;
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        if (body.classList.contains('sidebar-hidden')) {
+            // サイドバーを表示
+            body.classList.remove('sidebar-hidden');
+            if (sidebarToggle) {
+                sidebarToggle.innerHTML = '<i class="fas fa-bars me-2"></i>サイドバー';
+            }
+        }
+        else {
+            // サイドバーを非表示
+            body.classList.add('sidebar-hidden');
+            if (sidebarToggle) {
+                sidebarToggle.innerHTML = '<i class="fas fa-eye me-2"></i>サイドバー';
+            }
+        }
     }
 }
 // アプリケーションの初期化

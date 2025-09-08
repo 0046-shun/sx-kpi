@@ -66,4 +66,5 @@ export declare class App {
     private showBITool;
     private setupBIEventListeners;
     private updateBIDashboard;
+    private toggleSidebar;
 }
