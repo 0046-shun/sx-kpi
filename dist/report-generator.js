@@ -861,11 +861,11 @@ export class ReportGenerator {
                     const year = selectedDate.getFullYear();
                     const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
                     const day = String(selectedDate.getDate()).padStart(2, '0');
-                    fileName = `${year}-${month}-${day}.pdf`;
+                    fileName = `日報_${year}-${month}-${day}.pdf`;
                 }
                 else {
                     // フォールバック：現在日付
-                    fileName = `${new Date().toISOString().split('T')[0]}.pdf`;
+                    fileName = `日報_${new Date().toISOString().split('T')[0]}.pdf`;
                 }
             }
             else {
@@ -873,20 +873,20 @@ export class ReportGenerator {
                 if (report.selectedMonth) {
                     // selectedMonthが "2025-08" 形式の場合
                     if (typeof report.selectedMonth === 'string' && report.selectedMonth.includes('-')) {
-                        fileName = `${report.selectedMonth}.pdf`;
+                        fileName = `月報_${report.selectedMonth}.pdf`;
                     }
                     else if (report.selectedYear && report.selectedMonth) {
                         // selectedMonthが数値の場合
                         const year = report.selectedYear;
                         const month = String(report.selectedMonth).padStart(2, '0');
-                        fileName = `${year}-${month}.pdf`;
+                        fileName = `月報_${year}-${month}.pdf`;
                     }
                     else {
                         // フォールバック：現在年月
                         const now = new Date();
                         const year = now.getFullYear();
                         const month = String(now.getMonth() + 1).padStart(2, '0');
-                        fileName = `${year}-${month}.pdf`;
+                        fileName = `月報_${year}-${month}.pdf`;
                     }
                 }
                 else {
@@ -894,7 +894,7 @@ export class ReportGenerator {
                     const now = new Date();
                     const year = now.getFullYear();
                     const month = String(now.getMonth() + 1).padStart(2, '0');
-                    fileName = `${year}-${month}.pdf`;
+                    fileName = `月報_${year}-${month}.pdf`;
                 }
             }
             pdf.save(fileName);
