@@ -318,78 +318,26 @@ export class ExcelProcessor {
         const dateMatch = effectiveDateOnly.getTime() === targetDateOnly.getTime();
 
         if (dateMatch) {
-            // J列条件チェック（1、2、5の場合は除外）
+            // J列条件チェック（空欄または4の場合のみ受注としてカウント）
             const confirmation = row.confirmation;
             if (typeof confirmation === 'number') {
-                if (confirmation === 1 || confirmation === 2 || confirmation === 5) {
-                    return false;
-                }
+                // 数値の場合：4のみ受注としてカウント
+                return confirmation === 4;
             } else if (typeof confirmation === 'string') {
                 const trimmedValue = confirmation.trim();
-                if (trimmedValue !== '') {
+                if (trimmedValue === '') {
+                    // 空欄の場合：受注としてカウント
+                    return true;
+                } else {
                     const confirmationNum = parseInt(trimmedValue);
-                    if (!isNaN(confirmationNum) && (confirmationNum === 1 || confirmationNum === 2 || confirmationNum === 5)) {
-                        return false;
+                    if (!isNaN(confirmationNum)) {
+                        // 数値に変換できる場合：4のみ受注としてカウント
+                        return confirmationNum === 4;
                     }
                 }
-            }
-
-            // K列条件チェック（受注パターン）
-            // K列に日付がない場合は、A列の日付で受注カウント
-            if (!row.confirmationDateTime || typeof row.confirmationDateTime !== 'string') {
+            } else {
+                // null, undefined等の場合：空欄として扱い、受注としてカウント
                 return true;
-            }
-
-            const confirmationStr = row.confirmationDateTime;
-
-            // 除外キーワードのチェック
-            if (confirmationStr.includes('担当待ち') || confirmationStr.includes('直電') ||
-                confirmationStr.includes('契約時') || confirmationStr.includes('待ち') ||
-                confirmationStr.includes('入電予定')) {
-                return false;
-            }
-
-            // 「同時」パターンのチェック
-            if (confirmationStr.includes('同時')) {
-                return true;
-            }
-
-            // 有効な受注パターンのチェック
-            if (confirmationStr.includes('単独') || confirmationStr.includes('過量')) {
-                return true;
-            }
-
-            // 69歳以下パターンのチェック
-            if (row.contractorAge && typeof row.contractorAge === 'number' && row.contractorAge <= 69) {
-                if (confirmationStr.includes('69歳以下')) {
-                    return true;
-                }
-            }
-
-            // 日付パターンのチェック（8/25 11:55 大城 のような形式）
-            const dateTimePattern = confirmationStr.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
-            if (dateTimePattern) {
-                const kColumnMonth = parseInt(dateTimePattern[1]);
-                const kColumnDay = parseInt(dateTimePattern[2]);
-                const kColumnDateOnly = new Date(targetDate.getFullYear(), kColumnMonth - 1, kColumnDay);
-                const kDateMatch = kColumnDateOnly.getTime() === targetDateOnly.getTime();
-
-                if (kDateMatch) {
-                    return true;
-                }
-            }
-
-            // 単純な日付パターンのチェック（8/25 のような形式）
-            const simpleDatePattern = confirmationStr.match(/(\d{1,2})\/(\d{1,2})/);
-            if (simpleDatePattern) {
-                const kColumnMonth = parseInt(simpleDatePattern[1]);
-                const kColumnDay = parseInt(simpleDatePattern[2]);
-                const kColumnDateOnly = new Date(targetDate.getFullYear(), kColumnMonth - 1, kColumnDay);
-                const kDateMatch = kColumnDateOnly.getTime() === targetDateOnly.getTime();
-
-                if (kDateMatch) {
-                    return true;
-                }
             }
 
             return false;
@@ -407,35 +355,27 @@ export class ExcelProcessor {
                           effectiveDate.getMonth() === targetDate.getMonth();
         
         if (monthMatch) {
-            // 月が一致する場合は、基本的に受注として扱う
-            // ただし、明らかに除外すべき条件のみチェック
-            
-            // J列条件チェック（1、2、5の場合は除外）
+            // J列条件チェック（空欄または4の場合のみ受注としてカウント）
             const confirmation = row.confirmation;
             if (typeof confirmation === 'number') {
-                if (confirmation === 1 || confirmation === 2 || confirmation === 5) {
-                    return false;
-                }
+                // 数値の場合：4のみ受注としてカウント
+                return confirmation === 4;
             } else if (typeof confirmation === 'string') {
                 const trimmedValue = confirmation.trim();
-                if (trimmedValue !== '') {
+                if (trimmedValue === '') {
+                    // 空欄の場合：受注としてカウント
+                    return true;
+                } else {
                     const confirmationNum = parseInt(trimmedValue);
-                    if (!isNaN(confirmationNum) && (confirmationNum === 1 || confirmationNum === 2 || confirmationNum === 5)) {
-                        return false;
+                    if (!isNaN(confirmationNum)) {
+                        // 数値に変換できる場合：4のみ受注としてカウント
+                        return confirmationNum === 4;
                     }
                 }
+            } else {
+                // null, undefined等の場合：空欄として扱い、受注としてカウント
+                return true;
             }
-            
-            // K列の明らかな除外キーワードのみチェック
-            if (row.confirmationDateTime && typeof row.confirmationDateTime === 'string') {
-                const confirmationStr = row.confirmationDateTime;
-                // より厳密な除外条件のみ
-                if (confirmationStr.includes('担当待ち') || confirmationStr.includes('直電')) {
-                    return false;
-                }
-            }
-            
-            return true;
         }
 
         return false;

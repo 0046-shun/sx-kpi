@@ -1413,31 +1413,29 @@ export class ReportGenerator {
     
     // シンプルな受注判定
     private isSimpleOrder(row: any): boolean {
-        // J列の確認区分チェック（1、2、5の場合は除外）
+        // J列条件チェック（空欄または4の場合のみ受注としてカウント）
         const confirmation = row.confirmation;
         if (typeof confirmation === 'number') {
-            if (confirmation === 1 || confirmation === 2 || confirmation === 5) {
-                return false;
-            }
+            // 数値の場合：4のみ受注としてカウント
+            return confirmation === 4;
         } else if (typeof confirmation === 'string') {
             const trimmedValue = confirmation.trim();
-            if (trimmedValue !== '') {
+            if (trimmedValue === '') {
+                // 空欄の場合：受注としてカウント
+                return true;
+            } else {
                 const confirmationNum = parseInt(trimmedValue);
-                if (!isNaN(confirmationNum) && (confirmationNum === 1 || confirmationNum === 2 || confirmationNum === 5)) {
-                    return false;
+                if (!isNaN(confirmationNum)) {
+                    // 数値に変換できる場合：4のみ受注としてカウント
+                    return confirmationNum === 4;
                 }
             }
+        } else {
+            // null, undefined等の場合：空欄として扱い、受注としてカウント
+            return true;
         }
         
-        // K列の除外キーワードチェック
-        if (row.confirmationDateTime && typeof row.confirmationDateTime === 'string') {
-            const confirmationStr = row.confirmationDateTime;
-            if (confirmationStr.includes('担当待ち') || confirmationStr.includes('直電')) {
-                return false;
-            }
-        }
-        
-        return true;
+        return false;
     }
 
     // 文字列/数値いずれでも年齢を数値で取得する
