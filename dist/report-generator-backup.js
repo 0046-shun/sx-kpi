@@ -1377,6 +1377,7 @@ export class ReportGenerator {
                         totalOrders: 0,
                         normalAgeOrders: 0,
                         elderlyOrders: 0,
+                        corporateOrders: 0,
                         singleOrders: 0,
                         excessiveOrders: 0,
                         overtimeOrders: 0

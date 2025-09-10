@@ -163,6 +163,7 @@ export interface StaffData {
     totalOrders: number;
     normalAgeOrders: number;
     elderlyOrders: number;
+    corporateOrders: number;  // 法人契約件数
     singleOrders: number;
     excessiveOrders: number;
     overtimeOrders: number;

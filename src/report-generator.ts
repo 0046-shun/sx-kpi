@@ -1480,8 +1480,6 @@ export class ReportGenerator {
                 if (existingStaff) {
                     // 受注件数のカウント
                     if (isOrder) {
-                        existingStaff.totalOrders++;
-                        
                         // 年齢カウント
                         if (typeof ageNum === 'number') {
                             if (ageNum <= 69) {
@@ -1490,6 +1488,14 @@ export class ReportGenerator {
                                 existingStaff.elderlyOrders++;
                             }
                         }
+                        
+                        // 法人契約カウント
+                        if (this.excelProcessor.isCorporate(row)) {
+                            existingStaff.corporateOrders++;
+                        }
+                        
+                        // 受注件数 = 70歳以上 + 69歳以下 + 法人
+                        existingStaff.totalOrders = existingStaff.elderlyOrders + existingStaff.normalAgeOrders + existingStaff.corporateOrders;
                         
                         // その他のカウント
                         if (this.excelProcessor.isSingle(row)) {
@@ -1503,13 +1509,18 @@ export class ReportGenerator {
                         }
                     }
                 } else {
+                    const normalAgeCount = (isOrder && typeof ageNum === 'number' && ageNum <= 69) ? 1 : 0;
+                    const elderlyCount = (isOrder && typeof ageNum === 'number' && ageNum >= 70) ? 1 : 0;
+                    const corporateCount = (isOrder && this.excelProcessor.isCorporate(row)) ? 1 : 0;
+                    
                     const newStaff: StaffData = {
                         regionNo: row.regionNumber,
                         departmentNo: row.departmentNumber,
                         staffName: normalizedStaffName,
-                        totalOrders: isOrder ? 1 : 0,
-                        normalAgeOrders: (isOrder && typeof ageNum === 'number' && ageNum <= 69) ? 1 : 0,
-                        elderlyOrders: (isOrder && typeof ageNum === 'number' && ageNum >= 70) ? 1 : 0,
+                        totalOrders: elderlyCount + normalAgeCount + corporateCount,
+                        normalAgeOrders: normalAgeCount,
+                        elderlyOrders: elderlyCount,
+                        corporateOrders: corporateCount,
                         singleOrders: (isOrder && this.excelProcessor.isSingle(row)) ? 1 : 0,
                         excessiveOrders: (isOrder && this.excelProcessor.isExcessive(row)) ? 1 : 0,
                         overtimeOrders: (isOrder && this.excelProcessor.isOvertime(row)) ? 1 : 0
@@ -1645,13 +1656,14 @@ export class ReportGenerator {
         }
 
         const tableRows = staffData.map(staff => `
-            <tr data-region="${staff.regionNo || ''}" data-department="${staff.departmentNo || ''}" data-staff="${staff.staffName}" data-orders="${staff.totalOrders}" data-normal-age="${staff.normalAgeOrders}" data-elderly="${staff.elderlyOrders}" data-single="${staff.singleOrders}" data-excessive="${staff.excessiveOrders}" data-overtime="${staff.overtimeOrders}">
+            <tr data-region="${staff.regionNo || ''}" data-department="${staff.departmentNo || ''}" data-staff="${staff.staffName}" data-orders="${staff.totalOrders}" data-normal-age="${staff.normalAgeOrders}" data-elderly="${staff.elderlyOrders}" data-corporate="${staff.corporateOrders}" data-single="${staff.singleOrders}" data-excessive="${staff.excessiveOrders}" data-overtime="${staff.overtimeOrders}">
                 <td>${staff.regionNo || ''}</td>
                 <td>${staff.departmentNo || ''}</td>
                 <td>${staff.staffName}</td>
                 <td>${staff.totalOrders}</td>
-                <td>${staff.normalAgeOrders}</td>
                 <td>${staff.elderlyOrders}</td>
+                <td>${staff.normalAgeOrders}</td>
+                <td>${staff.corporateOrders}</td>
                 <td>${staff.singleOrders}</td>
                 <td>${staff.excessiveOrders}</td>
                 <td>${staff.overtimeOrders}</td>
@@ -1726,20 +1738,23 @@ export class ReportGenerator {
                             <th class="sortable" data-sort="orders">
                                 受注件数
                             </th>
-                            <th class="sortable" data-sort="normalAge">
-                                契約者69歳以下件数
-                            </th>
                             <th class="sortable" data-sort="elderly">
-                                70歳以上件数
+                                70歳以上
+                            </th>
+                            <th class="sortable" data-sort="normalAge">
+                                69歳以下
+                            </th>
+                            <th class="sortable" data-sort="corporate">
+                                法人
                             </th>
                             <th class="sortable" data-sort="single">
-                                単独件数
+                                単独
                             </th>
                             <th class="sortable" data-sort="excessive">
-                                過量件数
+                                過量
                             </th>
                             <th class="sortable" data-sort="overtime">
-                                時間外件数
+                                時間外
                             </th>
                         </tr>
                     </thead>
