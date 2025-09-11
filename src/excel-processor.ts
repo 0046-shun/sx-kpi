@@ -280,23 +280,6 @@ export class ExcelProcessor {
         return normalizedName.trim();
     }
 
-    /**
-     * 法人契約かどうかを判定
-     * H列がハイフン（-）または全角ハイフン（－）の場合に法人契約として判定
-     * @param row データ行
-     * @returns 法人契約の場合true
-     */
-    public isCorporate(row: any): boolean {
-        if (!row.contractorAge) {
-            return false;
-        }
-        
-        // H列の値を文字列として取得
-        const contractorAgeStr = String(row.contractorAge).trim();
-        
-        // ハイフン（半角・全角）の場合は法人契約
-        return contractorAgeStr === '-' || contractorAgeStr === '－';
-    }
     
     /**
      * 指定された日付の受注かどうかを判定

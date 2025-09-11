@@ -1460,6 +1460,7 @@ export class ReportGenerator {
             return matches;
         });
         
+        
         monthlyData.forEach((row, index) => {
             // 担当者名の正規化
             const normalizedStaffName = this.normalizeStaffName(row.staffName);
@@ -1480,6 +1481,8 @@ export class ReportGenerator {
                 if (existingStaff) {
                     // 受注件数のカウント
                     if (isOrder) {
+                        existingStaff.totalOrders++;
+                        
                         // 年齢カウント
                         if (typeof ageNum === 'number') {
                             if (ageNum <= 69) {
@@ -1488,14 +1491,6 @@ export class ReportGenerator {
                                 existingStaff.elderlyOrders++;
                             }
                         }
-                        
-                        // 法人契約カウント
-                        if (this.excelProcessor.isCorporate(row)) {
-                            existingStaff.corporateOrders++;
-                        }
-                        
-                        // 受注件数 = 70歳以上 + 69歳以下 + 法人
-                        existingStaff.totalOrders = existingStaff.elderlyOrders + existingStaff.normalAgeOrders + existingStaff.corporateOrders;
                         
                         // その他のカウント
                         if (this.excelProcessor.isSingle(row)) {
@@ -1509,18 +1504,14 @@ export class ReportGenerator {
                         }
                     }
                 } else {
-                    const normalAgeCount = (isOrder && typeof ageNum === 'number' && ageNum <= 69) ? 1 : 0;
-                    const elderlyCount = (isOrder && typeof ageNum === 'number' && ageNum >= 70) ? 1 : 0;
-                    const corporateCount = (isOrder && this.excelProcessor.isCorporate(row)) ? 1 : 0;
-                    
                     const newStaff: StaffData = {
                         regionNo: row.regionNumber,
                         departmentNo: row.departmentNumber,
                         staffName: normalizedStaffName,
-                        totalOrders: elderlyCount + normalAgeCount + corporateCount,
-                        normalAgeOrders: normalAgeCount,
-                        elderlyOrders: elderlyCount,
-                        corporateOrders: corporateCount,
+                        totalOrders: isOrder ? 1 : 0,
+                        normalAgeOrders: (isOrder && typeof ageNum === 'number' && ageNum <= 69) ? 1 : 0,
+                        elderlyOrders: (isOrder && typeof ageNum === 'number' && ageNum >= 70) ? 1 : 0,
+                        corporateOrders: 0, // 後で計算
                         singleOrders: (isOrder && this.excelProcessor.isSingle(row)) ? 1 : 0,
                         excessiveOrders: (isOrder && this.excelProcessor.isExcessive(row)) ? 1 : 0,
                         overtimeOrders: (isOrder && this.excelProcessor.isOvertime(row)) ? 1 : 0
@@ -1530,6 +1521,16 @@ export class ReportGenerator {
                 }
             }
         });
+        
+        // 法人件数を計算（受注件数 - 70歳以上 - 69歳以下）
+        staffData.forEach(staff => {
+            staff.corporateOrders = staff.totalOrders - staff.elderlyOrders - staff.normalAgeOrders;
+            // 負の値にならないように調整
+            if (staff.corporateOrders < 0) {
+                staff.corporateOrders = 0;
+            }
+        });
+        
         
         return staffData;
     }
@@ -1727,34 +1728,34 @@ export class ReportGenerator {
                     <thead class="table-dark">
                         <tr>
                             <th class="sortable" data-sort="region">
-                                地区
+                                地区 <i class="fas fa-sort"></i>
                             </th>
                             <th class="sortable" data-sort="department">
-                                所属
+                                所属 <i class="fas fa-sort"></i>
                             </th>
                             <th class="sortable" data-sort="staff">
-                                担当名
+                                担当名 <i class="fas fa-sort"></i>
                             </th>
                             <th class="sortable" data-sort="orders">
-                                受注件数
+                                受注件数 <i class="fas fa-sort"></i>
                             </th>
                             <th class="sortable" data-sort="elderly">
-                                70歳以上
+                                70歳以上 <i class="fas fa-sort"></i>
                             </th>
                             <th class="sortable" data-sort="normalAge">
-                                69歳以下
+                                69歳以下 <i class="fas fa-sort"></i>
                             </th>
                             <th class="sortable" data-sort="corporate">
-                                法人
+                                法人 <i class="fas fa-sort"></i>
                             </th>
                             <th class="sortable" data-sort="single">
-                                単独
+                                単独 <i class="fas fa-sort"></i>
                             </th>
                             <th class="sortable" data-sort="excessive">
-                                過量
+                                過量 <i class="fas fa-sort"></i>
                             </th>
                             <th class="sortable" data-sort="overtime">
-                                時間外
+                                時間外 <i class="fas fa-sort"></i>
                             </th>
                         </tr>
                     </thead>

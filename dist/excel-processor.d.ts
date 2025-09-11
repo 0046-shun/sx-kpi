@@ -16,13 +16,6 @@ export declare class ExcelProcessor {
      */
     private normalizeStaffName;
     /**
-     * 法人契約かどうかを判定
-     * H列がハイフン（-）または全角ハイフン（－）の場合に法人契約として判定
-     * @param row データ行
-     * @returns 法人契約の場合true
-     */
-    isCorporate(row: any): boolean;
-    /**
      * 指定された日付の受注かどうかを判定
      * @param row データ行
      * @param targetDate 対象日付

@@ -1044,6 +1044,7 @@ export class App {
                 return row.getAttribute('data-staff') || '';
             case 'orders':
             case 'elderly':
+            case 'corporate':
             case 'single':
             case 'excessive':
             case 'overtime':

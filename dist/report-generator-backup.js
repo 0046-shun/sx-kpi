@@ -1409,8 +1409,17 @@ export class ReportGenerator {
             validStaffRows: validStaffCount
         });
         console.log('担当者別集計完了, 担当者数:', staffMap.size);
+        // 法人件数を計算（受注件数 - 70歳以上 - 69歳以下）
+        const staffArray = Array.from(staffMap.values());
+        staffArray.forEach(staff => {
+            staff.corporateOrders = staff.totalOrders - staff.elderlyOrders - staff.normalAgeOrders;
+            // 負の値にならないように調整
+            if (staff.corporateOrders < 0) {
+                staff.corporateOrders = 0;
+            }
+        });
         // 件数降順でソート
-        const result = Array.from(staffMap.values()).sort((a, b) => b.totalOrders - a.totalOrders);
+        const result = staffArray.sort((a, b) => b.totalOrders - a.totalOrders);
         console.log('担当別データ結果(最初の3件):', result.slice(0, 3));
         return result;
     }
