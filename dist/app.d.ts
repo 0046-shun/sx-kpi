@@ -52,6 +52,7 @@ export declare class App {
     private getCurrentMonthlyData;
     private generateMonthlyReportForFileDrop;
     private setupDataFilters;
+    private exportDataConfirmationTableToCSV;
     private updateActiveFiltersDisplay;
     private setupExportButtons;
     private showMessage;
@@ -67,4 +68,5 @@ export declare class App {
     private setupBIEventListeners;
     private updateBIDashboard;
     private toggleSidebar;
+    exportYearlyCSV(): Promise<void>;
 }

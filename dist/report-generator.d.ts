@@ -38,7 +38,8 @@ export declare class ReportGenerator {
     private createPDFHTMLAsync;
     exportToCSV(report: any, type: string): Promise<void>;
     private exportStaffRankingCSVs;
-    private downloadCSV;
+    downloadCSV(data: any[][], fileName: string): Promise<void>;
+    exportYearlyReportsToCSV(data: any[], progressCallback?: (current: number, total: number, month: string) => void, startCallback?: () => void, completeCallback?: (totalMonths: number) => void): Promise<void>;
     private createRankingTableHTML;
     generateStaffData(data: any[], targetDate: Date): StaffData[];
     private isSimpleOrder;

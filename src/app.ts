@@ -131,6 +131,37 @@ export class App {
                 this.toggleSidebar();
             });
         }
+
+        // 年度CSV出力ボタンのイベントリスナー
+        const exportYearlyCSVBtn = document.getElementById('exportYearlyCSV');
+        if (exportYearlyCSVBtn) {
+            console.log('年度CSV出力ボタンが見つかりました');
+            exportYearlyCSVBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('年度CSV出力ボタンがクリックされました');
+                alert('ボタンがクリックされました'); // テスト用
+                this.exportYearlyCSV();
+            });
+        } else {
+            console.error('年度CSV出力ボタンが見つかりません');
+            // 少し遅延してから再度試行（DOMが完全に読み込まれていない可能性）
+            setTimeout(() => {
+                const retryBtn = document.getElementById('exportYearlyCSV');
+                if (retryBtn) {
+                    console.log('リトライ: 年度CSV出力ボタンが見つかりました');
+                    retryBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('年度CSV出力ボタンがクリックされました（リトライ）');
+                        alert('ボタンがクリックされました（リトライ）'); // テスト用
+                        this.exportYearlyCSV();
+                    });
+                } else {
+                    console.error('リトライ後も年度CSV出力ボタンが見つかりません');
+                }
+            }, 1000);
+        }
     }
     
     private initializeCalendarManager(): void {
@@ -1196,12 +1227,19 @@ export class App {
             const prohibitedConstructionOnly = prohibitedConstructionFilter?.checked || false;
             const normalConstructionOnly = normalConstructionFilter?.checked || false;
             
+            // 単独・過量フィルター
+            const singleFilter = document.getElementById('singleFilter') as HTMLInputElement;
+            const excessiveFilter = document.getElementById('excessiveFilter') as HTMLInputElement;
+            
+            const singleOnly = singleFilter?.checked || false;
+            const excessiveOnly = excessiveFilter?.checked || false;
+            
             const rows = table.querySelectorAll('tbody tr');
             let visibleCount = 0;
             
             rows.forEach((row: Element) => {
                 const cells = row.querySelectorAll('td');
-                if (cells.length >= 13) { // 列数が増えたので13に変更
+                if (cells.length >= 15) { // 列数が増えたので15に変更（単独・過量追加）
                     const staffName = cells[3]?.textContent?.toLowerCase() || ''; // インデックス調整
                     const regionNo = cells[4]?.textContent?.toLowerCase() || ''; // インデックス調整
                     const departmentNo = cells[5]?.textContent?.toLowerCase() || ''; // インデックス調整
@@ -1255,7 +1293,23 @@ export class App {
                         }
                     }
                     
-                    if (matchesStaff && matchesRegion && matchesDepartment && matchesDate && matchesMonth && matchesOrderLogic && matchesConstruction) {
+                    // 単独・過量フィルター
+                    let matchesSingleExcessive = true;
+                    if (singleOnly || excessiveOnly) {
+                        const isSingle = (row as HTMLElement).getAttribute('data-single') === 'true';
+                        const isExcessive = (row as HTMLElement).getAttribute('data-excessive') === 'true';
+                        
+                        if (singleOnly && excessiveOnly) {
+                            // 両方チェックされている場合は、どちらか一方でも該当すればOK
+                            matchesSingleExcessive = isSingle || isExcessive;
+                        } else if (singleOnly) {
+                            matchesSingleExcessive = isSingle;
+                        } else if (excessiveOnly) {
+                            matchesSingleExcessive = isExcessive;
+                        }
+                    }
+                    
+                    if (matchesStaff && matchesRegion && matchesDepartment && matchesDate && matchesMonth && matchesOrderLogic && matchesConstruction && matchesSingleExcessive) {
                         (row as HTMLElement).style.display = '';
                         visibleCount++;
                     } else {
@@ -1288,6 +1342,13 @@ export class App {
             if (prohibitedConstructionFilter) prohibitedConstructionFilter.checked = false;
             if (normalConstructionFilter) normalConstructionFilter.checked = false;
             
+            // 単独・過量フィルターもクリア
+            const singleFilter = document.getElementById('singleFilter') as HTMLInputElement;
+            const excessiveFilter = document.getElementById('excessiveFilter') as HTMLInputElement;
+            
+            if (singleFilter) singleFilter.checked = false;
+            if (excessiveFilter) excessiveFilter.checked = false;
+            
             filterData();
             this.updateActiveFiltersDisplay();
         };
@@ -1318,6 +1379,76 @@ export class App {
         });
         
         if (clearFiltersBtn) clearFiltersBtn.addEventListener('click', clearFilters);
+        
+        // CSV出力ボタンのイベントリスナー
+        const exportCSVBtn = document.getElementById('exportDataConfirmationCSV');
+        if (exportCSVBtn) {
+            exportCSVBtn.addEventListener('click', () => {
+                this.exportDataConfirmationTableToCSV();
+            });
+        }
+    }
+    
+    // データ確認テーブルのCSV出力
+    private exportDataConfirmationTableToCSV(): void {
+        const table = document.getElementById('dataConfirmationTable');
+        if (!table) {
+            this.showMessage('テーブルが見つかりません。', 'error');
+            return;
+        }
+        
+        try {
+            // ヘッダー行を取得
+            const headerRow = table.querySelector('thead tr');
+            const headers: string[] = [];
+            if (headerRow) {
+                headerRow.querySelectorAll('th').forEach(th => {
+                    headers.push(th.textContent?.trim() || '');
+                });
+            }
+            
+            // データ行を取得（表示されている行のみ）
+            const rows = table.querySelectorAll('tbody tr');
+            const csvData: string[][] = [headers];
+            
+            rows.forEach((row: Element) => {
+                const cells = row.querySelectorAll('td');
+                const rowData: string[] = [];
+                
+                cells.forEach((cell, index) => {
+                    // バッジのテキストを取得（○や-などの表示テキスト）
+                    let cellText = cell.textContent?.trim() || '';
+                    
+                    // バッジの場合は記号に変換
+                    if (cell.querySelector('.badge')) {
+                        const badge = cell.querySelector('.badge');
+                        if (badge?.textContent?.includes('○')) {
+                            cellText = '○';
+                        } else if (badge?.textContent?.includes('-')) {
+                            cellText = '-';
+                        } else {
+                            // 公休日・禁止日のバッジ
+                            cellText = badge?.textContent?.trim() || '';
+                        }
+                    }
+                    
+                    rowData.push(cellText);
+                });
+                
+                // 表示されている行のみ追加
+                if ((row as HTMLElement).style.display !== 'none' && rowData.length === headers.length) {
+                    csvData.push(rowData);
+                }
+            });
+            
+            // CSV出力
+            this.reportGenerator.downloadCSV(csvData, `データ確認一覧_${new Date().toISOString().split('T')[0]}.csv`);
+            this.showMessage(`CSV出力が完了しました（${csvData.length - 1}件）。`, 'success');
+            
+        } catch (error) {
+            console.error('CSV出力エラー:', error);
+            this.showMessage('CSV出力中にエラーが発生しました。', 'error');
+        }
     }
     
     // アクティブフィルター表示を更新
@@ -1367,6 +1498,17 @@ export class App {
             filters.push(`<span class="badge bg-success me-1"><i class="fas fa-calendar-check me-1"></i>通常日施工のみ</span>`);
         }
         
+        // 単独・過量フィルター
+        const singleFilter = document.getElementById('singleFilter') as HTMLInputElement;
+        const excessiveFilter = document.getElementById('excessiveFilter') as HTMLInputElement;
+        
+        if (singleFilter?.checked) {
+            filters.push(`<span class="badge bg-info me-1">単独のみ</span>`);
+        }
+        if (excessiveFilter?.checked) {
+            filters.push(`<span class="badge bg-warning me-1">過量のみ</span>`);
+        }
+        
         // 表示/非表示
         if (filters.length > 0) {
             activeFiltersList.innerHTML = filters.join('');
@@ -1402,7 +1544,7 @@ export class App {
 
     // メッセージ表示
     private showMessage(message: string, type: 'success' | 'error' | 'info'): void {
-
+        console.log('showMessageが呼ばれました:', { message, type });
         
         // 既存のメッセージを削除
         const existingMessages = document.querySelectorAll('.alert-message');
@@ -1423,6 +1565,7 @@ export class App {
         
         // メッセージをbodyに追加
         document.body.appendChild(alertDiv);
+        console.log('メッセージをDOMに追加しました:', alertDiv);
 
         
         // 閉じるボタンのイベントリスナー
@@ -1807,9 +1950,106 @@ export class App {
             }
         }
     }
+
+    // 年度CSV出力
+    public async exportYearlyCSV(): Promise<void> {
+        console.log('exportYearlyCSVメソッドが呼ばれました');
+        const data = this.dataManager.getData();
+        console.log('データ件数:', data.length);
+        
+        if (data.length === 0) {
+            console.log('データがありません');
+            this.showMessage('データが読み込まれていません。', 'error');
+            return;
+        }
+
+        try {
+            console.log('CSV出力処理を開始します');
+            // プログレスバーを表示
+            const progressDiv = document.getElementById('yearlyCSVProgress');
+            const progressBar = document.getElementById('yearlyCSVProgressBar');
+            const statusText = document.getElementById('yearlyCSVStatus');
+            const exportBtn = document.getElementById('exportYearlyCSV') as HTMLButtonElement;
+
+            console.log('プログレスバー要素の確認:', {
+                progressDiv: !!progressDiv,
+                progressBar: !!progressBar,
+                statusText: !!statusText,
+                exportBtn: !!exportBtn
+            });
+
+            if (progressDiv && progressBar && statusText && exportBtn) {
+                progressDiv.style.display = 'block';
+                exportBtn.disabled = true;
+                exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>処理中...';
+                // 開始メッセージをプログレスバーのステータスに表示
+                statusText.textContent = '📋 CSV生成を開始しました...';
+                progressBar.style.width = '0%';
+                console.log('プログレスバーを表示しました');
+            } else {
+                console.error('プログレスバー要素が見つかりません');
+            }
+
+            // CSV生成開始メッセージ（画面右上にも表示）
+            console.log('開始メッセージを表示します');
+            this.showMessage('📋 年度CSV出力を開始しました。', 'info');
+
+            // 年度CSV出力を実行（プログレスコールバック付き）
+            await this.reportGenerator.exportYearlyReportsToCSV(
+                data,
+                (current, total, month) => {
+                    // プログレス更新
+                    if (progressBar && statusText) {
+                        const percentage = Math.round((current / total) * 100);
+                        progressBar.style.width = `${percentage}%`;
+                        statusText.textContent = `📊 処理中: ${current}/${total} (${month})`;
+                    }
+                },
+                () => {
+                    // 開始コールバック（既にメッセージ表示済み）
+                },
+                (totalMonths) => {
+                    // 完了コールバック
+                    if (statusText) {
+                        statusText.textContent = `✅ 完了: ${totalMonths}ヶ月分のCSV出力が完了しました`;
+                    }
+                    this.showMessage(`✅ ${totalMonths}ヶ月分のCSV出力が完了しました。`, 'success');
+                }
+            );
+
+            // プログレスバーを少し待ってから非表示（完了メッセージを確認できるように）
+            setTimeout(() => {
+                if (progressDiv && progressBar && statusText && exportBtn) {
+                    progressDiv.style.display = 'none';
+                    exportBtn.disabled = false;
+                    exportBtn.innerHTML = '<i class="fas fa-download me-2"></i>年度CSV出力';
+                    progressBar.style.width = '0%';
+                }
+            }, 2000); // 2秒待ってからプログレスバーを非表示
+
+        } catch (error) {
+            console.error('年度CSV出力エラー:', error);
+            this.showMessage('年度CSV出力中にエラーが発生しました。', 'error');
+
+            // プログレスバーを非表示
+            const progressDiv = document.getElementById('yearlyCSVProgress');
+            const exportBtn = document.getElementById('exportYearlyCSV') as HTMLButtonElement;
+            if (progressDiv && exportBtn) {
+                progressDiv.style.display = 'none';
+                exportBtn.disabled = false;
+                exportBtn.innerHTML = '<i class="fas fa-download me-2"></i>年度CSV出力';
+            }
+        }
+    }
 }
 
 // アプリケーションの初期化
 document.addEventListener('DOMContentLoaded', () => {
-    new App();
+    console.log('App初期化開始');
+    const app = new App();
+    console.log('Appインスタンス作成完了');
+    // グローバルにAppインスタンスを保存（デバッグ用）
+    (window as any).appInstance = app;
+    console.log('window.appInstanceに保存しました:', app);
+    console.log('exportYearlyCSVメソッド:', typeof app.exportYearlyCSV);
 });

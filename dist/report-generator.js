@@ -247,23 +247,46 @@ export class ReportGenerator {
     }
     calculateRegionStats(data) {
         const regions = {
-            '九州地区': { orders: 0, overtime: 0, excessive: 0, single: 0, holidayConstruction: 0, prohibitedConstruction: 0 },
-            '中四国地区': { orders: 0, overtime: 0, excessive: 0, single: 0, holidayConstruction: 0, prohibitedConstruction: 0 },
-            '関西地区': { orders: 0, overtime: 0, excessive: 0, single: 0, holidayConstruction: 0, prohibitedConstruction: 0 },
-            '関東地区': { orders: 0, overtime: 0, excessive: 0, single: 0, holidayConstruction: 0, prohibitedConstruction: 0 },
-            'その他': { orders: 0, overtime: 0, excessive: 0, single: 0, holidayConstruction: 0, prohibitedConstruction: 0 }
+            '九州地区': { orders: 0, overtime: 0, excessive: 0, excessiveNormal: 0, excessiveEarlyElderly: 0, excessiveLateElderly: 0, single: 0, singleEarlyElderly: 0, singleLateElderly: 0, holidayConstruction: 0, prohibitedConstruction: 0 },
+            '中四国地区': { orders: 0, overtime: 0, excessive: 0, excessiveNormal: 0, excessiveEarlyElderly: 0, excessiveLateElderly: 0, single: 0, singleEarlyElderly: 0, singleLateElderly: 0, holidayConstruction: 0, prohibitedConstruction: 0 },
+            '関西地区': { orders: 0, overtime: 0, excessive: 0, excessiveNormal: 0, excessiveEarlyElderly: 0, excessiveLateElderly: 0, single: 0, singleEarlyElderly: 0, singleLateElderly: 0, holidayConstruction: 0, prohibitedConstruction: 0 },
+            '関東地区': { orders: 0, overtime: 0, excessive: 0, excessiveNormal: 0, excessiveEarlyElderly: 0, excessiveLateElderly: 0, single: 0, singleEarlyElderly: 0, singleLateElderly: 0, holidayConstruction: 0, prohibitedConstruction: 0 },
+            'その他': { orders: 0, overtime: 0, excessive: 0, excessiveNormal: 0, excessiveEarlyElderly: 0, excessiveLateElderly: 0, single: 0, singleEarlyElderly: 0, singleLateElderly: 0, holidayConstruction: 0, prohibitedConstruction: 0 }
         };
         data.forEach(row => {
             const region = this.getRegionName(row.regionNumber);
             if (regions[region]) {
                 regions[region].orders++;
                 regions[region].overtime += this.getOvertimeCount(row, null);
-                // 動的に判定
-                if (this.excelProcessor.isExcessive(row)) {
+                const age = row.contractorAge || row.age;
+                const isExcessive = this.excelProcessor.isExcessive(row);
+                const isSingle = this.excelProcessor.isSingle(row);
+                // 過量販売の年齢別集計
+                if (isExcessive) {
                     regions[region].excessive++;
+                    if (age && typeof age === 'number') {
+                        if (age <= 69) {
+                            regions[region].excessiveNormal++;
+                        }
+                        else if (age >= 70 && age <= 75) {
+                            regions[region].excessiveEarlyElderly++;
+                        }
+                        else if (age > 75) {
+                            regions[region].excessiveLateElderly++;
+                        }
+                    }
                 }
-                if (this.excelProcessor.isSingle(row)) {
+                // 単独契約の年齢別集計（70歳以上のみ）
+                if (isSingle) {
                     regions[region].single++;
+                    if (age && typeof age === 'number') {
+                        if (age >= 70 && age <= 75) {
+                            regions[region].singleEarlyElderly++;
+                        }
+                        else if (age > 75) {
+                            regions[region].singleLateElderly++;
+                        }
+                    }
                 }
                 // 公休日・禁止日施工の判定と集計
                 // T列（着工日）が公休日・禁止日 → カウント
@@ -1238,6 +1261,143 @@ export class ReportGenerator {
             link.click();
         }
     }
+    // 年度CSV出力（全月分の月報をCSV出力）
+    async exportYearlyReportsToCSV(data, progressCallback, startCallback, completeCallback) {
+        try {
+            if (!data || data.length === 0) {
+                alert('データが読み込まれていません。');
+                return;
+            }
+            // CSV生成開始メッセージ
+            if (startCallback) {
+                startCallback();
+            }
+            // データから年月の範囲を取得（effectiveDateを使用してA列とK列の遅い日付を採用）
+            const dateMap = new Map();
+            const yearSet = new Set();
+            // 各データ行からeffectiveDateを計算して年月を抽出
+            data.forEach(row => {
+                if (!row.date) {
+                    return;
+                }
+                // effectiveDateを計算（A列とK列の遅い日付を採用）
+                let effectiveDate = row.date;
+                if (row.confirmationDateTime && typeof row.confirmationDateTime === 'string') {
+                    const confirmationStr = row.confirmationDateTime;
+                    const dateTimePattern = confirmationStr.match(/(\d{1,2})\/(\d{1,2})/);
+                    if (dateTimePattern) {
+                        const kColumnMonth = parseInt(dateTimePattern[1]);
+                        const kColumnDay = parseInt(dateTimePattern[2]);
+                        const aColumnYear = new Date(row.date).getFullYear();
+                        const aColumnMonth = new Date(row.date).getMonth() + 1;
+                        // K列の年を推定（A列の年を基準に、月の大小関係から判断）
+                        let kColumnYear = aColumnYear;
+                        // K列の月がA列より小さい場合、次の年の可能性を考慮
+                        // ただし、データの範囲から最も可能性の高い年を選択
+                        if (kColumnMonth < aColumnMonth) {
+                            // 月が逆転している場合、次の年の可能性が高い
+                            // ただし、データ全体を見て判断する必要がある
+                            // ここではA列の年とA列の年+1の両方を考慮
+                            kColumnYear = aColumnYear + 1;
+                        }
+                        const kColumnDate = new Date(kColumnYear, kColumnMonth - 1, kColumnDay);
+                        // 遅い日付を採用
+                        if (kColumnDate > row.date) {
+                            effectiveDate = kColumnDate;
+                        }
+                    }
+                }
+                // effectiveDateから年月を抽出
+                const year = effectiveDate.getFullYear();
+                const month = effectiveDate.getMonth() + 1;
+                yearSet.add(year);
+                const key = `${year}-${String(month).padStart(2, '0')}`;
+                dateMap.set(key, true);
+            });
+            // 年月をソート
+            const months = Array.from(dateMap.keys()).sort();
+            if (months.length === 0) {
+                alert('有効な日付データが見つかりませんでした。');
+                return;
+            }
+            const totalMonths = months.length;
+            let currentMonth = 0;
+            // 各月について月報を生成してCSV出力
+            for (const monthStr of months) {
+                currentMonth++;
+                const [year, month] = monthStr.split('-').map(Number);
+                if (progressCallback) {
+                    progressCallback(currentMonth, totalMonths, `${year}年${month}月`);
+                }
+                // 月報を生成
+                const report = this.generateMonthlyReport(data, monthStr);
+                // 地区別の詳細統計CSVデータを生成
+                const csvData = [
+                    // ヘッダー行
+                    ['地区別受注件数', '受注件数', '時間外対応', '過量販売', '過量販売（69歳以下）', '過量販売（前期高齢者70以上75以下）', '過量販売（後期高齢者75歳以上）', '単独契約', '単独（前期高齢者70以上75以下）', '単独（後期高齢者75歳以上）'],
+                    // 各地区のデータ（指定された順序で）
+                    ['九州地区',
+                        (report.regionStats['九州地区']?.orders || 0).toString(),
+                        (report.regionStats['九州地区']?.overtime || 0).toString(),
+                        (report.regionStats['九州地区']?.excessive || 0).toString(),
+                        (report.regionStats['九州地区']?.excessiveNormal || 0).toString(),
+                        (report.regionStats['九州地区']?.excessiveEarlyElderly || 0).toString(),
+                        (report.regionStats['九州地区']?.excessiveLateElderly || 0).toString(),
+                        (report.regionStats['九州地区']?.single || 0).toString(),
+                        (report.regionStats['九州地区']?.singleEarlyElderly || 0).toString(),
+                        (report.regionStats['九州地区']?.singleLateElderly || 0).toString()],
+                    ['中四国地区',
+                        (report.regionStats['中四国地区']?.orders || 0).toString(),
+                        (report.regionStats['中四国地区']?.overtime || 0).toString(),
+                        (report.regionStats['中四国地区']?.excessive || 0).toString(),
+                        (report.regionStats['中四国地区']?.excessiveNormal || 0).toString(),
+                        (report.regionStats['中四国地区']?.excessiveEarlyElderly || 0).toString(),
+                        (report.regionStats['中四国地区']?.excessiveLateElderly || 0).toString(),
+                        (report.regionStats['中四国地区']?.single || 0).toString(),
+                        (report.regionStats['中四国地区']?.singleEarlyElderly || 0).toString(),
+                        (report.regionStats['中四国地区']?.singleLateElderly || 0).toString()],
+                    ['関西地区',
+                        (report.regionStats['関西地区']?.orders || 0).toString(),
+                        (report.regionStats['関西地区']?.overtime || 0).toString(),
+                        (report.regionStats['関西地区']?.excessive || 0).toString(),
+                        (report.regionStats['関西地区']?.excessiveNormal || 0).toString(),
+                        (report.regionStats['関西地区']?.excessiveEarlyElderly || 0).toString(),
+                        (report.regionStats['関西地区']?.excessiveLateElderly || 0).toString(),
+                        (report.regionStats['関西地区']?.single || 0).toString(),
+                        (report.regionStats['関西地区']?.singleEarlyElderly || 0).toString(),
+                        (report.regionStats['関西地区']?.singleLateElderly || 0).toString()],
+                    ['関東地区',
+                        (report.regionStats['関東地区']?.orders || 0).toString(),
+                        (report.regionStats['関東地区']?.overtime || 0).toString(),
+                        (report.regionStats['関東地区']?.excessive || 0).toString(),
+                        (report.regionStats['関東地区']?.excessiveNormal || 0).toString(),
+                        (report.regionStats['関東地区']?.excessiveEarlyElderly || 0).toString(),
+                        (report.regionStats['関東地区']?.excessiveLateElderly || 0).toString(),
+                        (report.regionStats['関東地区']?.single || 0).toString(),
+                        (report.regionStats['関東地区']?.singleEarlyElderly || 0).toString(),
+                        (report.regionStats['関東地区']?.singleLateElderly || 0).toString()]
+                ];
+                // CSVファイル名（月ごとに別ファイル）
+                const fileName = `月報_${year}年${month}月.csv`;
+                // CSVダウンロード
+                await this.downloadCSV(csvData, fileName);
+                // ブラウザのダウンロード処理を待つため少し待機
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            if (progressCallback) {
+                progressCallback(totalMonths, totalMonths, '完了');
+            }
+            // CSV生成完了メッセージ
+            if (completeCallback) {
+                completeCallback(totalMonths);
+            }
+        }
+        catch (error) {
+            console.error('年度CSV出力エラー:', error);
+            alert('年度CSV出力中にエラーが発生しました。');
+            throw error;
+        }
+    }
     createRankingTableHTML(ranking) {
         if (!ranking || ranking.length === 0) {
             return '<div class="text-center text-muted py-3">データがありません</div>';
@@ -1607,6 +1767,9 @@ export class ReportGenerator {
             // 公休日・禁止日判定
             const isHolidayConstruction = this.isHolidayConstruction(row);
             const isProhibitedConstruction = this.isProhibitedConstruction(row);
+            // 単独・過量判定
+            const isSingle = this.excelProcessor.isSingle(row);
+            const isExcessive = this.excelProcessor.isExcessive(row);
             // 公休日・禁止日の表示
             let constructionStatus = '';
             if (isHolidayConstruction) {
@@ -1618,11 +1781,16 @@ export class ReportGenerator {
             else {
                 constructionStatus = '<span class="badge bg-success"><i class="fas fa-calendar-check me-1"></i>通常日</span>';
             }
+            // 単独・過量の表示
+            const singleStatus = isSingle ? '<span class="badge bg-info">○</span>' : '<span class="text-muted">-</span>';
+            const excessiveStatus = isExcessive ? '<span class="badge bg-warning">○</span>' : '<span class="text-muted">-</span>';
             return `
                 <tr data-order-status="${isOrderForDate ? 'order' : 'non-order'}" 
                     data-effective-date="${effectiveDate ? effectiveDate.toISOString() : ''}"
                     data-holiday-construction="${isHolidayConstruction}"
-                    data-prohibited-construction="${isProhibitedConstruction}">
+                    data-prohibited-construction="${isProhibitedConstruction}"
+                    data-single="${isSingle}"
+                    data-excessive="${isExcessive}">
                     <td>${index + 1}</td>
                     <td>${row.date ? row.date.toLocaleDateString() : 'N/A'}</td>
                     <td>${effectiveDate ? effectiveDate.toLocaleDateString() : 'N/A'}</td>
@@ -1636,6 +1804,8 @@ export class ReportGenerator {
                     <td>${row.startDate ? row.startDate.toLocaleDateString() : 'N/A'}</td>
                     <td>${row.completionDate ? row.completionDate.toLocaleDateString() : 'N/A'}</td>
                     <td>${constructionStatus}</td>
+                    <td>${singleStatus}</td>
+                    <td>${excessiveStatus}</td>
                 </tr>
             `;
         }).join('');
@@ -1687,7 +1857,7 @@ export class ReportGenerator {
                     </div>
                     
                     <!-- 公休日・禁止日フィルター -->
-                    <div class="d-flex align-items-center gap-4" style="position: relative; top: -38px; margin-bottom: -38px;">
+                    <div class="d-flex align-items-center gap-4 mb-3">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="holidayConstructionFilter" style="transform: scale(1.2);">
                             <label class="form-check-label fs-5" for="holidayConstructionFilter">
@@ -1708,6 +1878,22 @@ export class ReportGenerator {
                         </div>
                     </div>
                     
+                    <!-- 単独・過量フィルター -->
+                    <div class="d-flex align-items-center gap-4 mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="singleFilter" style="transform: scale(1.2);">
+                            <label class="form-check-label fs-5" for="singleFilter">
+                                単独
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="excessiveFilter" style="transform: scale(1.2);">
+                            <label class="form-check-label fs-5" for="excessiveFilter">
+                                過量
+                            </label>
+                        </div>
+                    </div>
+                    
                     <!-- アクティブフィルター表示 -->
                     <div class="row mt-3">
                         <div class="col-md-12">
@@ -1718,6 +1904,14 @@ export class ReportGenerator {
                         </div>
                     </div>
                 </div>
+            </div>
+            
+            <!-- CSV出力ボタン -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">データ一覧</h5>
+                <button type="button" class="btn btn-success" id="exportDataConfirmationCSV">
+                    <i class="fas fa-file-csv me-2"></i>データ一覧CSV出力
+                </button>
             </div>
             
             <div class="table-responsive">
@@ -1737,6 +1931,8 @@ export class ReportGenerator {
                             <th>着工日</th>
                             <th>完工予定日</th>
                             <th>公休日・禁止日</th>
+                            <th>単独</th>
+                            <th>過量</th>
                         </tr>
                     </thead>
                     <tbody>

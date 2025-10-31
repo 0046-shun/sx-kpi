@@ -1176,6 +1176,30 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 年度CSV出力 -->
+                <div class="card mt-3">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0"><i class="fas fa-file-csv me-2"></i>年度CSV出力</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-3">全月分の月報データをCSV形式で出力します。</p>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-danger" id="exportYearlyCSV">
+                                <i class="fas fa-download me-2"></i>年度CSV出力
+                            </button>
+                        </div>
+                        <div id="yearlyCSVProgress" class="mt-3" style="display: none;">
+                            <div class="progress mb-2">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" 
+                                     id="yearlyCSVProgressBar" 
+                                     style="width: 0%"></div>
+                            </div>
+                            <small class="text-muted" id="yearlyCSVStatus">処理中...</small>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- メインコンテンツエリア -->
@@ -1338,6 +1362,71 @@
         // ページ読み込み完了時のログ
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM読み込み完了');
+            
+            // 年度CSV出力ボタンのイベントリスナー（一時的な対策）
+            function setupYearlyCSVButton() {
+                const exportYearlyCSVBtn = document.getElementById('exportYearlyCSV');
+                if (exportYearlyCSVBtn) {
+                    console.log('年度CSV出力ボタンが見つかりました（HTML側）');
+                    // 既存のイベントリスナーを削除してから追加
+                    const newBtn = exportYearlyCSVBtn.cloneNode(true);
+                    exportYearlyCSVBtn.parentNode?.replaceChild(newBtn, exportYearlyCSVBtn);
+                    
+                    newBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('年度CSV出力ボタンがクリックされました（HTML側）');
+                        alert('年度CSV出力ボタンがクリックされました');
+                        
+                        // Appインスタンスを取得してメソッドを呼び出す
+                        console.log('window.appInstance:', window.appInstance);
+                        const appInstance = window.appInstance;
+                        
+                        if (!appInstance) {
+                            console.error('Appインスタンスが見つかりません。モジュールが読み込まれていない可能性があります。');
+                            alert('Appインスタンスが見つかりません。\n\nページをリロードして、TypeScriptをコンパイルしてください。\n\nコンパイルコマンド:\nnpx tsc src/*.ts --outDir dist --target ES2020 --module ES2020 --moduleResolution node --strict --esModuleInterop --skipLibCheck --forceConsistentCasingInFileNames --declaration --sourceMap');
+                            return;
+                        }
+                        
+                        console.log('Appインスタンスのメソッド:', Object.getOwnPropertyNames(Object.getPrototypeOf(appInstance)));
+                        
+                        if (typeof appInstance.exportYearlyCSV === 'function') {
+                            console.log('exportYearlyCSVメソッドを呼び出します');
+                            appInstance.exportYearlyCSV().catch(function(error) {
+                                console.error('exportYearlyCSVエラー:', error);
+                                alert('CSV出力中にエラーが発生しました: ' + error.message);
+                            });
+                        } else {
+                            console.error('exportYearlyCSVメソッドが見つかりません');
+                            console.log('利用可能なメソッド:', Object.getOwnPropertyNames(Object.getPrototypeOf(appInstance)));
+                            alert('exportYearlyCSVメソッドが見つかりません。\n\nTypeScriptをコンパイルしてください。\n\nコンパイルコマンド:\nnpx tsc src/*.ts --outDir dist --target ES2020 --module ES2020 --moduleResolution node --strict --esModuleInterop --skipLibCheck --forceConsistentCasingInFileNames --declaration --sourceMap');
+                        }
+                    });
+                } else {
+                    console.error('年度CSV出力ボタンが見つかりません（HTML側）');
+                    // 1秒後にリトライ
+                    setTimeout(setupYearlyCSVButton, 1000);
+                }
+            }
+            
+            // 少し遅延してから設定（モジュール読み込みを待つ）
+            // モジュールが読み込まれるまで待機（最大5秒）
+            let retryCount = 0;
+            const maxRetries = 10;
+            function checkAppInstance() {
+                if (window.appInstance) {
+                    console.log('Appインスタンスが見つかりました（リトライ成功）');
+                    setupYearlyCSVButton();
+                } else if (retryCount < maxRetries) {
+                    retryCount++;
+                    console.log('Appインスタンス待機中... (' + retryCount + '/' + maxRetries + ')');
+                    setTimeout(checkAppInstance, 500);
+                } else {
+                    console.error('Appインスタンスが見つかりませんでした（タイムアウト）');
+                    setupYearlyCSVButton(); // それでもボタン設定は試みる
+                }
+            }
+            checkAppInstance();
         });
         
         // エラーハンドリング
